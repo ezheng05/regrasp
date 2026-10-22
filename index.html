@@ -1,0 +1,1705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Interactive 3D model of ReGrasp, an EMG-controlled glove for stroke survivors. BU ECE Senior Design, Team 11 Neurobionics.">
+<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>ReGrasp Live Model</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* layout: full-height studio view on the left, instrument panel on the right; stacks on phones */
+:root {
+  --bg: #F2F3F6; --panel: #FFFFFF; --ink: #14213D; --ink-2: #4A5470; --ink-3: #7A8399; --line: #E3E6EC; --chip: #EEF0F4;
+  --accent: #F9B384; --accent-ink: #B4561C; --accent-soft: #FDE7D7;
+  --ok: #1F7A4D; --ok-soft: #E3F2EA; --warn: #9A5B13; --warn-soft: #FBEEDC; --bad: #B03A2E; --bad-soft: #FBE8E6; --info: #22528F; --info-soft: #E5EDF8;
+  --scene: #EDEFF3; --floor: #E7E9EE; --trace: #14213D;
+  --font: 'DM Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0C1322; --panel: #111A2D; --ink: #E9EDF5; --ink-2: #AEB7C9; --ink-3: #7F8AA0; --line: #223050; --chip: #18233A;
+  --accent: #F9B384; --accent-ink: #F9B384; --accent-soft: #3A2A22;
+  --ok: #5CC795; --ok-soft: #13301F; --warn: #F0B15E; --warn-soft: #33260F; --bad: #F08A80; --bad-soft: #3A1714; --info: #8DB4EE; --info-soft: #14243F;
+  --scene: #0F1729; --floor: #1A2438; --trace: #E9EDF5; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0C1322; --panel: #111A2D; --ink: #E9EDF5; --ink-2: #AEB7C9; --ink-3: #7F8AA0; --line: #223050; --chip: #18233A;
+  --accent: #F9B384; --accent-ink: #F9B384; --accent-soft: #3A2A22;
+  --ok: #5CC795; --ok-soft: #13301F; --warn: #F0B15E; --warn-soft: #33260F; --bad: #F08A80; --bad-soft: #3A1714; --info: #8DB4EE; --info-soft: #14243F;
+  --scene: #0F1729; --floor: #1A2438; --trace: #E9EDF5; color-scheme: dark; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+h1, h2, h3, h4, p { margin: 0; }
+button { font: inherit; color: inherit; }
+.app { height: 100%; display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); }
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 12px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); border-bottom: 1px solid var(--line); background: var(--panel); }
+.brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.brand b { font-size: 19px; font-weight: 700; letter-spacing: 0.06em; }
+.brand span { color: var(--ink-3); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 auto; }
+.sim-note { font-size: 12.5px; color: var(--ink-2); background: var(--chip); border-radius: 999px; padding: 5px 12px; white-space: nowrap; }
+.stage { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 400px; }
+.view { position: relative; min-height: 0; overflow: hidden; background: var(--scene); }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+#gl:active { cursor: grabbing; }
+.pill { position: absolute; left: 16px; top: 16px; display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px 6px 6px; box-shadow: 0 1px 2px rgba(20,33,61,0.06); z-index: 3; max-width: calc(100% - 32px); }
+.pill .tag { font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; border-radius: 999px; padding: 3px 10px; border: 1.5px solid currentColor; white-space: nowrap; }
+.pill .txt { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pill[data-s="active"] .tag { color: var(--ok); background: var(--ok-soft); }
+.pill[data-s="unchecked"] .tag, .pill[data-s="reposition"] .tag { color: var(--warn); background: var(--warn-soft); }
+.pill[data-s="calibrating"] .tag { color: var(--info); background: var(--info-soft); }
+.pill[data-s="fault"] .tag { color: var(--bad); background: var(--bad-soft); }
+.pill[data-s="nopower"] .tag, .pill[data-s="idle"] .tag { color: var(--ink-2); background: var(--chip); }
+.views { position: absolute; right: 16px; top: 16px; display: flex; gap: 8px; z-index: 3; }
+.seg { display: flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+.seg button { border: 0; background: transparent; padding: 5px 11px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--chip); color: var(--ink); }
+.seg button:focus-visible, .hold:focus-visible, .btn:focus-visible, .tab:focus-visible, #gl:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+.cue { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); text-align: center; z-index: 3; pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.cue .big { font-size: clamp(26px, 4vw, 40px); font-weight: 700; letter-spacing: -0.01em; color: var(--ink); text-shadow: 0 1px 0 var(--scene); }
+.cue .sub { font-size: 13px; color: var(--ink-2); font-family: var(--mono); }
+.cue .bar { width: min(320px, 60vw); height: 5px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.cue .bar i { display: block; height: 100%; width: 0; background: var(--info); }
+.controls { position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; gap: 12px; z-index: 3; align-items: center; }
+.hold { min-width: 132px; border: 1.5px solid var(--ink); background: var(--panel); color: var(--ink); border-radius: 14px; padding: 12px 18px; font-size: 16px; font-weight: 700; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: none; display: flex; flex-direction: column; align-items: center; gap: 2px; box-shadow: 0 2px 6px rgba(20,33,61,0.08); }
+.hold small { font-size: 11.5px; font-weight: 500; color: var(--ink-3); font-family: var(--mono); }
+.hold.on { background: var(--ink); color: var(--panel); transform: translateY(1px); }
+.hold.on small { color: var(--panel); opacity: 0.7; }
+.hold:disabled { opacity: 0.4; cursor: not-allowed; }
+.hold.both { min-width: 0; }
+.hint { position: absolute; left: 16px; bottom: max(16px, env(safe-area-inset-bottom, 0px)); font-size: 12px; color: var(--ink-3); z-index: 2; }
+.pins { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.pin { position: absolute; transform: translate(-6px, -6px); display: flex; align-items: center; gap: 8px; pointer-events: auto; }
+.pin i { width: 12px; height: 12px; border-radius: 50%; background: var(--panel); border: 3px solid var(--ink); flex: none; box-shadow: 0 0 0 3px rgba(249,179,132,0.35); }
+.pin span { font-size: 12.5px; font-weight: 600; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; white-space: nowrap; box-shadow: 0 1px 2px rgba(20,33,61,0.08); }
+.pin span em { font-style: normal; font-weight: 500; color: var(--ink-2); display: none; font-size: 12px; max-width: 220px; white-space: normal; }
+.pin:hover span em, .pin:focus-within span em { display: block; }
+.pin { cursor: default; }
+.pin.left { flex-direction: row-reverse; transform: translate(calc(-100% + 6px), -6px); }
+.pin.hidden { display: none; }
+.panel { background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto; min-height: 0; display: flex; flex-direction: column; }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 2; }
+.tab { border: 0; background: transparent; padding: 14px 8px 12px; font-size: 14px; font-weight: 600; color: var(--ink-3); cursor: pointer; border-bottom: 2px solid transparent; display: flex; gap: 8px; justify-content: center; align-items: baseline; }
+.tab b { font-family: var(--mono); font-weight: 500; font-size: 12px; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.step { padding: 18px 22px 8px; display: flex; flex-direction: column; gap: 10px; }
+.step h2 { font-size: 21px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.step p { color: var(--ink-2); max-width: 60ch; }
+.step .note { font-size: 13.5px; color: var(--ink-3); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1.5px solid var(--line); background: var(--panel); border-radius: 10px; padding: 9px 14px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn.primary { background: var(--ink); border-color: var(--ink); color: var(--panel); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.hold-btn.on { background: var(--ink); color: var(--panel); }
+.status { font-size: 14px; border-left: 3px solid var(--line); padding: 2px 0 2px 12px; color: var(--ink); }
+.status[data-k="good"] { border-color: var(--ok); }
+.status[data-k="warn"] { border-color: var(--warn); }
+.status[data-k="bad"] { border-color: var(--bad); }
+.status[data-k="info"] { border-color: var(--info); }
+.status:empty { display: none; }
+.list { display: flex; flex-direction: column; gap: 14px; }
+.item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--line); }
+.item h3 { font-size: 15px; font-weight: 700; }
+.item p { grid-column: 1 / -1; font-size: 14px; }
+.readouts { padding: 10px 22px 22px; display: flex; flex-direction: column; gap: 16px; border-top: 1px solid var(--line); margin-top: 10px; }
+.ro h4 { font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; display: flex; justify-content: space-between; gap: 8px; margin: 6px 0 8px; }
+.ro h4 span { letter-spacing: 0; text-transform: none; font-weight: 500; font-family: var(--mono); }
+#emg { width: 100%; height: 112px; display: block; }
+.bars { display: flex; flex-direction: column; gap: 7px; }
+.bar { display: grid; grid-template-columns: 52px 1fr 44px; align-items: center; gap: 10px; font-size: 13.5px; }
+.bar .track { position: relative; height: 10px; background: var(--chip); border-radius: 3px; }
+.bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--ink-3); width: 0; }
+.bar.top .fill { background: var(--ink); }
+.bar .thr { position: absolute; top: -3px; bottom: -3px; left: 80%; width: 2px; background: var(--accent); }
+.bar .v { font-family: var(--mono); font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.decide { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; font-size: 14px; }
+.decide .dots { display: flex; gap: 5px; align-items: center; font-size: 12px; color: var(--ink-3); }
+.decide .dots i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--ink-3); }
+.decide .dots i.on { background: var(--accent); border-color: var(--accent); }
+.decide b { font-weight: 700; }
+.meter { position: relative; height: 12px; background: var(--chip); border-radius: 3px; margin: 6px 0 4px; }
+.meter .fill { position: absolute; top: 0; bottom: 0; border-radius: 2px; }
+.meter .zero { position: absolute; top: -4px; bottom: -4px; width: 1.5px; background: var(--ink-2); }
+.meter .lim { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--bad); }
+.scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--ink-3); position: relative; height: 14px; }
+.scale span { position: absolute; transform: translateX(-50%); }
+.kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.kv div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.kv small { font-size: 12px; color: var(--ink-3); }
+.kv b { font-family: var(--mono); font-weight: 500; font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.log { font-family: var(--mono); font-size: 12px; color: var(--ink-2); display: flex; flex-direction: column; gap: 3px; min-height: 54px; }
+.log div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log div:first-child { color: var(--ink); }
+.nogl { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--ink-2); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 1100px) { .stage { grid-template-columns: minmax(0, 1fr) 360px; } .hint { display: none; } .views { top: 64px; left: 16px; right: auto; } }
+@media (max-width: 860px) {
+  .app { height: auto; min-height: 100%; }
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .view { height: min(62svh, 560px); min-height: 360px; }
+  .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+  .tabs { top: env(safe-area-inset-top, 0px); }
+  .sim-note { display: none; }
+  .hint { display: none; }
+  .views { top: auto; bottom: 84px; right: 12px; left: 12px; justify-content: center; }
+  #vLabels { display: none; }
+  .views .seg:last-child { display: none; }
+  .pill { left: 12px; top: 12px; }
+  .hold { min-width: 108px; padding: 11px 14px; }
+  .hold small { display: none; }
+  .step { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .readouts { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .pin span em { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .hold { transition: none; } }
+</style>
+
+<div class="app">
+  <header class="masthead">
+    <div class="brand"><b>REGRASP</b><span>Interactive model of the glove and armband</span></div>
+    <div class="sim-note">Simulated signals. Our prototype isn’t built yet.</div>
+  </header>
+  <main class="stage">
+    <section class="view" aria-label="3D model of the ReGrasp glove and armband">
+      <canvas id="gl" tabindex="0" aria-label="3D view. Drag to turn, scroll or pinch to zoom."></canvas>
+      <div class="pins" id="pins"></div>
+      <div class="pill" id="pill" data-s="active"><span class="tag" id="pillTag">ACTIVE</span><span class="txt" id="pillTxt">Glove on, day 1 model</span></div>
+      <div class="views">
+        <div class="seg" role="group" aria-label="Camera">
+          <button type="button" id="vAll" aria-pressed="true">Whole</button>
+          <button type="button" id="vHand" aria-pressed="false">Hand</button>
+          <button type="button" id="vBand" aria-pressed="false">Armband</button>
+        </div>
+        <div class="seg"><button type="button" id="vLabels" aria-pressed="true">Labels</button></div>
+      </div>
+      <div class="cue" id="cue" hidden><div class="big" id="cueBig">Rest</div><div class="bar"><i id="cueBar"></i></div><div class="sub" id="cueSub">0 of 30 s</div></div>
+      <div class="controls">
+        <button type="button" class="hold" id="hOpen" aria-label="Hold to open the hand"><span>Open</span><small>hold O</small></button>
+        <button type="button" class="hold" id="hClose" aria-label="Hold to close the hand"><span>Close</span><small>hold C</small></button>
+      </div>
+      <div class="hint">Drag to turn. Scroll or pinch to zoom.</div>
+    </section>
+
+    <aside class="panel">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab" role="tab" id="t1" aria-selected="true" aria-controls="s1"><b>1</b>Use it</button>
+        <button type="button" class="tab" role="tab" id="t2" aria-selected="false" aria-controls="s2"><b>2</b>Next day</button>
+        <button type="button" class="tab" role="tab" id="t3" aria-selected="false" aria-controls="s3"><b>3</b>Safety</button>
+      </div>
+
+      <div class="step" id="s1" role="tabpanel" aria-labelledby="t1">
+        <h2>Your forearm muscles drive the glove</h2>
+        <p>Hold <b>Open</b> or <b>Close</b>. The software reads the armband’s 8 channels in 150 ms windows and moves the glove after two confident windows in a row. Let go and it holds.</p>
+        <div class="row" style="align-items:center"><button type="button" class="btn" id="cupBtn">Put a cup in the hand</button><span class="note" id="cupHint">Open the hand first</span></div>
+        <div class="status" id="s1Status"></div>
+        <p class="note">Opening is usually the harder move after a stroke, so the open signal here is weaker than the close signal.</p>
+      </div>
+
+      <div class="step" id="s2" role="tabpanel" aria-labelledby="t2" hidden>
+        <h2>Put it back on the next day</h2>
+        <p>The armband never lands in the same spot twice. Yesterday’s model sees a different signal, so a quick check updates it before the glove turns on.</p>
+        <div class="row">
+          <button type="button" class="btn primary" id="offBtn">Take it off for the night</button>
+          <button type="button" class="btn" id="checkBtn" disabled>Run the 60 second check</button>
+        </div>
+        <div class="status" id="s2Status"></div>
+        <div class="row">
+          <button type="button" class="btn" id="looseBtn">Try a sloppy fit</button>
+          <button type="button" class="btn" id="alignBtn" hidden>Line up the mark</button>
+          <button type="button" class="btn" id="day1Btn">Back to day 1</button>
+        </div>
+        <p class="note">The check is 5 seconds of rest and 5 reps of each move, about 30 seconds. Here it runs 3 times faster. It updates only the average signal for each move, then tests itself on those reps. Under 70% and the glove stays off.</p>
+      </div>
+
+      <div class="step" id="s3" role="tabpanel" aria-labelledby="t3" hidden>
+        <h2>When something goes wrong</h2>
+        <div class="list">
+          <div class="item"><h3>Mixed signal</h3><button type="button" class="btn hold-btn" id="bothBtn">Hold both</button><p>Tense the open and close muscles at once. No move reaches 0.80, so the glove holds still.</p></div>
+          <div class="item"><h3>Power cut</h3><button type="button" class="btn" id="powerBtn">Cut the power</button><p>The valves are open when unpowered, so the glove vents and lets go. It comes back idle.</p></div>
+          <div class="item"><h3>Stuck valve</h3><button type="button" class="btn" id="jamBtn">Jam a valve</button><p>Pressure keeps climbing. Past the 60 kPa limit for 200 ms, the software vents the glove and stops.</p></div>
+        </div>
+        <div class="status" id="s3Status"></div>
+      </div>
+
+      <div class="readouts">
+        <div class="ro">
+          <h4>Forearm signal <span id="emgNote">8 ch, 1 kHz</span></h4>
+          <canvas id="emg" aria-label="Live muscle signal from 8 armband channels"></canvas>
+        </div>
+        <div class="ro">
+          <h4>What the software reads <span id="winNote">150 ms windows</span></h4>
+          <div class="bars">
+            <div class="bar" id="bRest"><span>Rest</span><div class="track"><div class="fill"></div><div class="thr"></div></div><span class="v">0.00</span></div>
+            <div class="bar" id="bOpen"><span>Open</span><div class="track"><div class="fill"></div><div class="thr"></div></div><span class="v">0.00</span></div>
+            <div class="bar" id="bClose"><span>Close</span><div class="track"><div class="fill"></div><div class="thr"></div></div><span class="v">0.00</span></div>
+          </div>
+          <div class="decide"><span id="decision"><b>Holding</b></span><span class="dots">0.80, 2 in a row <i id="d1"></i><i id="d2"></i></span></div>
+        </div>
+        <div class="ro">
+          <h4>Glove <span id="valveNote">valves closed</span></h4>
+          <div class="meter" id="meter"><div class="fill" id="mFill"></div><div class="zero" id="mZero"></div><div class="lim" id="mLim"></div></div>
+          <div class="scale" id="mScale"></div>
+          <div class="kv">
+            <div><small>Pressure</small><b id="kP">0 kPa</b></div>
+            <div><small>Grip</small><b id="kF">0.0 N</b></div>
+            <div><small>Response</small><b id="kL">-</b></div>
+          </div>
+        </div>
+        <div class="ro">
+          <h4>Events</h4>
+          <div class="log" id="log" aria-live="polite"></div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+/* engine: math, geometry, webgl2 renderer */
+
+/* math */
+const M4 = {
+  id() { const m = new Float32Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; },
+  mul(a, b, out) {
+    const o = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) {
+      o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+    }
+    if (out) { out.set(o); return out; }
+    return o;
+  },
+  trs(p, r, s) {
+    // R = Rz * Ry * Rx
+    const [x, y, z] = r;
+    const cx = Math.cos(x), sx = Math.sin(x), cy = Math.cos(y), sy = Math.sin(y), cz = Math.cos(z), sz = Math.sin(z);
+    const m = new Float32Array(16);
+    m[0] = cz * cy; m[1] = sz * cy; m[2] = -sy;
+    m[4] = cz * sy * sx - sz * cx; m[5] = sz * sy * sx + cz * cx; m[6] = cy * sx;
+    m[8] = cz * sy * cx + sz * sx; m[9] = sz * sy * cx - cz * sx; m[10] = cy * cx;
+    m[0] *= s[0]; m[1] *= s[0]; m[2] *= s[0];
+    m[4] *= s[1]; m[5] *= s[1]; m[6] *= s[1];
+    m[8] *= s[2]; m[9] *= s[2]; m[10] *= s[2];
+    m[12] = p[0]; m[13] = p[1]; m[14] = p[2]; m[15] = 1;
+    return m;
+  },
+  basis(xa, ya, za, p) {
+    const m = new Float32Array(16);
+    m.set([xa[0], xa[1], xa[2], 0, ya[0], ya[1], ya[2], 0, za[0], za[1], za[2], 0, p[0], p[1], p[2], 1]);
+    return m;
+  },
+  persp(fovy, asp, n, f) {
+    const t = 1 / Math.tan(fovy / 2), m = new Float32Array(16);
+    m[0] = t / asp; m[5] = t; m[10] = (f + n) / (n - f); m[11] = -1; m[14] = 2 * f * n / (n - f);
+    return m;
+  },
+  ortho(l, r, b, t, n, f) {
+    const m = new Float32Array(16);
+    m[0] = 2 / (r - l); m[5] = 2 / (t - b); m[10] = -2 / (f - n);
+    m[12] = -(r + l) / (r - l); m[13] = -(t + b) / (t - b); m[14] = -(f + n) / (f - n); m[15] = 1;
+    return m;
+  },
+  lookAt(e, t, up) {
+    let z = V3.norm(V3.sub(e, t)), x = V3.norm(V3.cross(up, z)), y = V3.cross(z, x);
+    const m = new Float32Array(16);
+    m.set([x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -V3.dot(x, e), -V3.dot(y, e), -V3.dot(z, e), 1]);
+    return m;
+  },
+  normal3(m) {
+    // inverse transpose of upper 3x3
+    const a = m[0], b = m[1], c = m[2], d = m[4], e = m[5], f = m[6], g = m[8], h = m[9], i = m[10];
+    const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
+    const det = a * A + b * B + c * C || 1e-9, k = 1 / det;
+    return new Float32Array([
+      A * k, B * k, C * k,
+      -(b * i - c * h) * k, (a * i - c * g) * k, -(a * h - b * g) * k,
+      (b * f - c * e) * k, -(a * f - c * d) * k, (a * e - b * d) * k
+    ]);
+  },
+  apply(m, p) {
+    const x = p[0], y = p[1], z = p[2];
+    const w = m[3] * x + m[7] * y + m[11] * z + m[15];
+    return [(m[0] * x + m[4] * y + m[8] * z + m[12]) / w, (m[1] * x + m[5] * y + m[9] * z + m[13]) / w, (m[2] * x + m[6] * y + m[10] * z + m[14]) / w];
+  }
+};
+const V3 = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  scale: (a, s) => [a[0] * s, a[1] * s, a[2] * s],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+  len: a => Math.hypot(a[0], a[1], a[2]),
+  norm: a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+  lerp: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
+};
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = t => t * t * (3 - 2 * t);
+function hexLin(h) {
+  const n = parseInt(h.replace('#', ''), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => Math.pow(v / 255, 2.2));
+}
+
+/* geometry */
+class Geo {
+  constructor(pos, idx, opts = {}) {
+    this.pos = pos; this.idx = idx; this.open = !!opts.open;
+    if (!this.open) this.fixWinding();
+    this.nor = opts.nor || this.normals();
+  }
+  fixWinding() {
+    const p = this.pos, ix = this.idx; let v = 0;
+    for (let i = 0; i < ix.length; i += 3) {
+      const a = ix[i] * 3, b = ix[i + 1] * 3, c = ix[i + 2] * 3;
+      v += p[a] * (p[b + 1] * p[c + 2] - p[b + 2] * p[c + 1]) - p[a + 1] * (p[b] * p[c + 2] - p[b + 2] * p[c]) + p[a + 2] * (p[b] * p[c + 1] - p[b + 1] * p[c]);
+    }
+    if (v < 0) for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; }
+  }
+  normals() {
+    const p = this.pos, ix = this.idx, n = new Float32Array(p.length);
+    for (let i = 0; i < ix.length; i += 3) {
+      const a = ix[i] * 3, b = ix[i + 1] * 3, c = ix[i + 2] * 3;
+      const ux = p[b] - p[a], uy = p[b + 1] - p[a + 1], uz = p[b + 2] - p[a + 2];
+      const vx = p[c] - p[a], vy = p[c + 1] - p[a + 1], vz = p[c + 2] - p[a + 2];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      for (const k of [a, b, c]) { n[k] += nx; n[k + 1] += ny; n[k + 2] += nz; }
+    }
+    for (let i = 0; i < n.length; i += 3) { const l = Math.hypot(n[i], n[i + 1], n[i + 2]) || 1; n[i] /= l; n[i + 1] /= l; n[i + 2] /= l; }
+    return n;
+  }
+}
+
+// rings: arrays of [x,y,z]; a ring of length 1 is a pole
+function loft(rings, closedLoop = true) {
+  const pos = [], idx = [], starts = [];
+  for (const r of rings) { starts.push(pos.length / 3); for (const p of r) pos.push(p[0], p[1], p[2]); }
+  for (let k = 0; k < rings.length - 1; k++) {
+    const A = rings[k], B = rings[k + 1], sa = starts[k], sb = starts[k + 1];
+    if (A.length === 1 && B.length > 1) {
+      for (let i = 0; i < B.length; i++) { const j = (i + 1) % B.length; if (!closedLoop && j === 0) break; idx.push(sa, sb + j, sb + i); }
+    } else if (B.length === 1 && A.length > 1) {
+      for (let i = 0; i < A.length; i++) { const j = (i + 1) % A.length; if (!closedLoop && j === 0) break; idx.push(sa + i, sa + j, sb); }
+    } else {
+      const n = A.length;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n; if (!closedLoop && j === 0) break;
+        idx.push(sa + i, sa + j, sb + j, sa + i, sb + j, sb + i);
+      }
+    }
+  }
+  return { pos: new Float32Array(pos), idx: new Uint32Array(idx) };
+}
+
+function sEll(c, n) { return Math.sign(c) * Math.pow(Math.abs(c), 2 / n); }
+
+// capsule along +x from 0 to len, radius r0 -> r1, z squash
+function capsuleGeo(len, r0, r1, zs = 1, N = 22, ex = 2) {
+  const rings = [], cap = 7, body = 6;
+  const ring = (x, ry, rz) => {
+    if (ry < 1e-5) return [[x, 0, 0]];
+    const out = []; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; out.push([x, sEll(Math.cos(a), ex) * ry, sEll(Math.sin(a), ex) * rz]); } return out;
+  };
+  for (let i = 0; i <= cap; i++) { const a = i / cap * Math.PI / 2; rings.push(ring(-r0 * Math.cos(a), r0 * Math.sin(a), r0 * Math.sin(a) * zs)); }
+  for (let i = 1; i < body; i++) { const t = i / body, r = lerp(r0, r1, t); rings.push(ring(len * t, r, r * zs)); }
+  for (let i = 0; i <= cap; i++) { const a = i / cap * Math.PI / 2; rings.push(ring(len + r1 * Math.sin(a), r1 * Math.cos(a), r1 * Math.cos(a) * zs)); }
+  const g = loft(rings); return new Geo(g.pos, g.idx);
+}
+
+// rounded box centered at origin
+function rboxGeo(w, h, d, r, k = 5, lin = 3) {
+  r = Math.min(r, w / 2 - 1e-3, h / 2 - 1e-3, d / 2 - 1e-3);
+  const samples = e => {
+    const inner = e - r, s = [];
+    for (let j = k; j >= 1; j--) s.push(-inner - r * Math.tan(j / k * Math.PI / 4));
+    for (let j = 0; j <= lin; j++) s.push(-inner + 2 * inner * j / lin);
+    for (let j = 1; j <= k; j++) s.push(inner + r * Math.tan(j / k * Math.PI / 4));
+    return s;
+  };
+  const hw = w / 2, hh = h / 2, hd = d / 2;
+  const sx = samples(hw), sy = samples(hh), sz = samples(hd);
+  const pos = [], nor = [], idx = [];
+  const face = (U, V, mk) => {
+    const base = pos.length / 3;
+    for (let j = 0; j < V.length; j++) for (let i = 0; i < U.length; i++) {
+      const p = mk(U[i], V[j]);
+      const c = [clamp(p[0], -(hw - r), hw - r), clamp(p[1], -(hh - r), hh - r), clamp(p[2], -(hd - r), hd - r)];
+      const n = V3.norm(V3.sub(p, c));
+      pos.push(c[0] + n[0] * r, c[1] + n[1] * r, c[2] + n[2] * r); nor.push(...n);
+    }
+    for (let j = 0; j < V.length - 1; j++) for (let i = 0; i < U.length - 1; i++) {
+      const a = base + j * U.length + i, b = a + 1, c = a + U.length, d2 = c + 1;
+      idx.push(a, b, d2, a, d2, c);
+    }
+  };
+  face(sx, sy, (u, v) => [u, v, hd]);
+  face(sy, sx, (u, v) => [v, u, -hd]);
+  face(sz, sy, (u, v) => [hw, v, -u]);
+  face(sz, sy, (u, v) => [-hw, v, u]);
+  face(sx, sz, (u, v) => [u, hh, -v]);
+  face(sx, sz, (u, v) => [u, -hh, v]);
+  const g = new Geo(new Float32Array(pos), new Uint32Array(idx), { nor: new Float32Array(nor) });
+  return g;
+}
+
+function catmull(pts, per = 8, closed = false) {
+  const out = [], n = pts.length;
+  const P = i => closed ? pts[(i + n) % n] : pts[clamp(i, 0, n - 1)];
+  const segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+    for (let s = 0; s < per; s++) {
+      const t = s / per, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1, 2].map(k => 0.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * t + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3)));
+    }
+  }
+  if (!closed) out.push(pts[n - 1]);
+  return out;
+}
+
+function tubeGeo(path, radius, N = 12, closed = false, caps = true) {
+  const n = path.length, T = [];
+  for (let i = 0; i < n; i++) {
+    const a = path[closed ? (i - 1 + n) % n : Math.max(i - 1, 0)], b = path[closed ? (i + 1) % n : Math.min(i + 1, n - 1)];
+    T.push(V3.norm(V3.sub(b, a)));
+  }
+  let nrm = Math.abs(T[0][1]) < 0.9 ? V3.norm(V3.cross(T[0], [0, 1, 0])) : V3.norm(V3.cross(T[0], [1, 0, 0]));
+  const rings = [];
+  if (!closed && caps) rings.push([path[0]]);
+  for (let i = 0; i < n; i++) {
+    if (i > 0) { nrm = V3.norm(V3.sub(nrm, V3.scale(T[i], V3.dot(nrm, T[i])))); }
+    const bin = V3.cross(T[i], nrm), r = typeof radius === 'function' ? radius(i / (n - 1)) : radius, ring = [];
+    for (let k = 0; k < N; k++) { const a = k / N * Math.PI * 2; ring.push(V3.add(path[i], V3.add(V3.scale(nrm, Math.cos(a) * r), V3.scale(bin, Math.sin(a) * r)))); }
+    rings.push(ring);
+  }
+  if (!closed && caps) rings.push([path[n - 1]]);
+  if (closed) rings.push(rings[0]);
+  const g = loft(rings);
+  return new Geo(g.pos, g.idx, { open: closed });
+}
+
+// surface of revolution around y from profile [[r,y],...]
+function latheGeo(profile, N = 48, open = true) {
+  const rings = profile.map(([r, y]) => {
+    if (r < 1e-5) return [[0, y, 0]];
+    const out = []; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; out.push([Math.cos(a) * r, y, Math.sin(a) * r]); } return out;
+  });
+  const g = loft(rings);
+  return new Geo(g.pos, g.idx, { open });
+}
+
+/* renderer */
+const VS = `#version 300 es
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNor;
+uniform mat4 uModel, uVP; uniform mat3 uNM;
+out vec3 vPos; out vec3 vNor;
+void main(){ vec4 w = uModel*vec4(aPos,1.0); vPos=w.xyz; vNor=uNM*aNor; gl_Position=uVP*w; }`;
+const FS = `#version 300 es
+precision highp float; precision highp sampler2DShadow;
+in vec3 vPos; in vec3 vNor; out vec4 o;
+uniform vec3 uColor, uSheen, uEmis, uCam, uBg;
+uniform float uRough, uSpec, uWrap, uOpacity, uNoise, uNoiseScale, uFloor, uFresAlpha, uDouble, uTint;
+uniform vec3 uTintColor;
+uniform vec3 uKeyDir, uKeyCol, uFillDir, uFillCol, uRimDir, uRimCol, uSky, uGround;
+uniform sampler2DShadow uShadow; uniform mat4 uLVP; uniform sampler2D uAO; uniform vec4 uAOBox; uniform float uFloorR0, uFloorR1, uExposure;
+float hash(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vnoise(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
+ return mix(mix(mix(hash(i),hash(i+vec3(1,0,0)),f.x),mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
+            mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z); }
+const vec2 PD[12]=vec2[12](vec2(-0.326,-0.406),vec2(-0.840,-0.074),vec2(-0.696,0.457),vec2(-0.203,0.621),vec2(0.962,-0.195),vec2(0.473,-0.480),vec2(0.519,0.767),vec2(0.185,-0.893),vec2(0.507,0.064),vec2(0.896,0.412),vec2(-0.322,-0.933),vec2(-0.792,-0.598));
+float shadowAt(vec3 p, vec3 n){
+  vec4 l = uLVP*vec4(p + n*0.06, 1.0); vec3 c = l.xyz/l.w*0.5+0.5;
+  if(c.x<0.0||c.x>1.0||c.y<0.0||c.y>1.0) return 1.0;
+  float s=0.0; float rad=1.6/2048.0;
+  for(int i=0;i<12;i++){ s+=texture(uShadow, vec3(c.xy+PD[i]*rad, c.z-0.0015)); }
+  return s/12.0;
+}
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0); }
+void main(){
+  vec3 N = normalize(vNor); if(uDouble>0.5 && !gl_FrontFacing) N=-N;
+  vec3 V = normalize(uCam - vPos);
+  vec3 alb = uColor;
+  if(uNoise>0.0){ float n = vnoise(vPos*uNoiseScale)*0.6+vnoise(vPos*uNoiseScale*3.1)*0.4; alb *= 1.0+(n-0.5)*uNoise; }
+  alb = mix(alb, uTintColor, uTint);
+  float sh = shadowAt(vPos, N);
+  float shin = clamp(2.0/pow(max(uRough,0.05),4.0)-2.0, 2.0, 2048.0);
+  float ndv = max(dot(N,V),0.0);
+  vec3 col = vec3(0.0);
+  vec3 Ls[3] = vec3[3](uKeyDir,uFillDir,uRimDir); vec3 Cs[3] = vec3[3](uKeyCol,uFillCol,uRimCol);
+  for(int i=0;i<3;i++){
+    vec3 L = Ls[i]; float nl = dot(N,L);
+    float d = max((nl+uWrap)/(1.0+uWrap),0.0);
+    vec3 H = normalize(L+V); float nh=max(dot(N,H),0.0);
+    float F = 0.04+0.96*pow(1.0-max(dot(H,V),0.0),5.0);
+    float sp = pow(nh,shin)*(shin+8.0)/25.13*F*uSpec*step(0.0,nl);
+    float k = i==0 ? sh : 1.0;
+    vec3 wrapTint = mix(vec3(1.0), vec3(1.0,0.72,0.62), clamp(uWrap*1.6,0.0,1.0)*(1.0-clamp(nl*2.0,0.0,1.0)));
+    col += Cs[i]*k*(alb*d*wrapTint + sp);
+  }
+  vec3 hemi = mix(uGround, uSky, N.y*0.5+0.5);
+  col += alb*hemi;
+  col += uSheen*pow(1.0-ndv,3.0)*(0.35+0.65*sh);
+  col += uEmis;
+  float alpha = uOpacity;
+  if(uFresAlpha>0.0) alpha = mix(uOpacity, 1.0, pow(1.0-ndv,2.0)*uFresAlpha);
+  vec3 outc = pow(aces(col*uExposure), vec3(1.0/2.2));
+  if(uFloor>0.5){
+    vec2 auv = (vPos.xz - uAOBox.xy)/uAOBox.zw;
+    float ao = 0.0; if(auv.x>0.0&&auv.x<1.0&&auv.y>0.0&&auv.y<1.0) ao = texture(uAO, auv).r;
+    vec3 fc = alb*(uKeyCol*mix(0.55,1.0,sh)*max(uKeyDir.y,0.0) + uSky*0.9) ;
+    fc *= 1.0 - 0.55*ao;
+    outc = pow(aces(fc*uExposure), vec3(1.0/2.2));
+    float r = length(vPos.xz - vec2(-6.0,2.0));
+    outc = mix(outc, uBg, smoothstep(uFloorR0, uFloorR1, r));
+  }
+  o = vec4(outc, alpha);
+}`;
+const VS_DEPTH = `#version 300 es
+layout(location=0) in vec3 aPos; uniform mat4 uModel, uVP; out float vY;
+void main(){ vec4 w=uModel*vec4(aPos,1.0); vY=w.y; gl_Position=uVP*w; }`;
+const FS_DEPTH = `#version 300 es
+precision highp float; in float vY; uniform float uFloorY, uAOMode; out vec4 o;
+void main(){ float h = vY-uFloorY; o = vec4(1.0-smoothstep(0.0,6.5,h)); }`;
+const VS_QUAD = `#version 300 es
+layout(location=0) in vec2 aP; out vec2 vUV; void main(){ vUV=aP*0.5+0.5; gl_Position=vec4(aP,0,1); }`;
+const FS_BLUR = `#version 300 es
+precision highp float; in vec2 vUV; uniform sampler2D uTex; uniform vec2 uDir; out vec4 o;
+void main(){ float w[7]=float[7](0.1964825501511404,0.2969069646728344,0.09447039785044732,0.010381362401148057,0.0,0.0,0.0);
+ float s = texture(uTex,vUV).r*w[0];
+ for(int i=1;i<4;i++){ float off=float(i)*1.4; s += texture(uTex,vUV+uDir*off).r*w[i]; s += texture(uTex,vUV-uDir*off).r*w[i]; }
+ o=vec4(s/ (w[0]+2.0*(w[1]+w[2]+w[3])) ); }`;
+
+class Renderer {
+  constructor(canvas) {
+    const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, premultipliedAlpha: false, powerPreference: 'high-performance' });
+    if (!gl) throw new Error('WebGL2 not available');
+    this.gl = gl; this.canvas = canvas;
+    this.prog = this.program(VS, FS); this.dprog = this.program(VS_DEPTH, FS_DEPTH); this.bprog = this.program(VS_QUAD, FS_BLUR);
+    this.u = this.uniforms(this.prog); this.du = this.uniforms(this.dprog); this.bu = this.uniforms(this.bprog);
+    // shadow map
+    this.SM = 2048;
+    this.shadowTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, this.shadowTex);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, this.SM, this.SM);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.shadowFB = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFB);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.shadowTex, 0);
+    // ao targets
+    this.AO = 256; this.aoTex = []; this.aoFB = [];
+    for (let i = 0; i < 2; i++) {
+      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.AO, this.AO, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+      this.aoTex.push(t); this.aoFB.push(fb);
+    }
+    this.aoDepth = gl.createRenderbuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const qb = gl.createBuffer(); this.quad = gl.createVertexArray(); gl.bindVertexArray(this.quad);
+    gl.bindBuffer(gl.ARRAY_BUFFER, qb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); gl.bindVertexArray(null);
+    this.aoDirty = true;
+  }
+  program(vs, fs) {
+    const gl = this.gl, mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh)); return sh; };
+    const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    return p;
+  }
+  uniforms(p) {
+    const gl = this.gl, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS), u = {};
+    for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name.replace('[0]', '')] = gl.getUniformLocation(p, info.name); }
+    return u;
+  }
+  upload(geo) {
+    if (geo.vao) return geo;
+    const gl = this.gl; geo.vao = gl.createVertexArray(); gl.bindVertexArray(geo.vao);
+    const b1 = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b1); gl.bufferData(gl.ARRAY_BUFFER, geo.pos, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    const b2 = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b2); gl.bufferData(gl.ARRAY_BUFFER, geo.nor, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+    const b3 = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, b3); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geo.idx, gl.STATIC_DRAW);
+    geo.count = geo.idx.length; gl.bindVertexArray(null);
+    return geo;
+  }
+}
+
+class Node {
+  constructor(name, geo, mat) {
+    this.name = name; this.geo = geo || null; this.mat = mat || null;
+    this.p = [0, 0, 0]; this.r = [0, 0, 0]; this.s = [1, 1, 1];
+    this.children = []; this.world = M4.id(); this.override = null; this.visible = true; this.castShadow = true;
+  }
+  add(...c) { for (const k of c) this.children.push(k); return this; }
+  update(parent) {
+    const local = this.override || M4.trs(this.p, this.r, this.s);
+    this.world = parent ? M4.mul(parent, local) : local;
+    for (const c of this.children) c.update(this.world);
+  }
+  walk(fn, vis = true) { if (vis && !this.visible) return; fn(this); for (const c of this.children) c.walk(fn, vis); }
+}
+
+function mat(o) {
+  return Object.assign({ color: hexLin('#cccccc'), rough: 0.6, spec: 0.5, wrap: 0, sheen: [0, 0, 0], emis: [0, 0, 0], opacity: 1, noise: 0, noiseScale: 6, floor: 0, fresAlpha: 0, double: 0, tint: 0, tintColor: [0, 0, 0], transparent: false }, o);
+}
+
+/* model: arm, hand, glove, armband, tubes, pump unit */
+const D2R = Math.PI / 180;
+const FLOOR_Y = -4.55;
+const BAND_X = -16.5;
+const SE = 2.35; // forearm cross-section squareness
+
+// forearm radius profile
+const ARM_X = [-28, -25.5, -21, -15, -9, -4, -0.5, 2.2];
+const ARM_RY = [3.95, 4.35, 4.55, 4.15, 3.55, 3.08, 2.92, 2.92];
+const ARM_RZ = [3.75, 4.05, 4.08, 3.55, 2.85, 2.25, 1.98, 1.95];
+function armR(x) {
+  if (x <= ARM_X[0]) return [ARM_RY[0], ARM_RZ[0]];
+  for (let i = 0; i < ARM_X.length - 1; i++) {
+    if (x <= ARM_X[i + 1]) {
+      const t = smooth((x - ARM_X[i]) / (ARM_X[i + 1] - ARM_X[i]));
+      return [lerp(ARM_RY[i], ARM_RY[i + 1], t), lerp(ARM_RZ[i], ARM_RZ[i + 1], t)];
+    }
+  }
+  return [ARM_RY[ARM_RY.length - 1], ARM_RZ[ARM_RZ.length - 1]];
+}
+function armPoint(x, th, off = 0) {
+  const [ry, rz] = armR(x);
+  return [x, sEll(Math.cos(th), SE) * (ry + off), sEll(Math.sin(th), SE) * (rz + off)];
+}
+function armNormal(x, th) {
+  const a = armPoint(x, th - 0.01), b = armPoint(x, th + 0.01);
+  const t = [0, b[1] - a[1], b[2] - a[2]];
+  let n = V3.norm([0, t[2], -t[1]]);
+  const p = armPoint(x, th);
+  if (n[1] * p[1] + n[2] * p[2] < 0) n = V3.scale(n, -1);
+  return n;
+}
+
+const FINGERS = [
+  // name, mcp x, y, lengths, radii, spread open/closed (deg)
+  { n: 'index', x: 8.85, y: 2.75, L: [4.25, 2.5, 2.05], R: [0.96, 0.88, 0.8, 0.7], sp: [7, 2] },
+  { n: 'middle', x: 9.15, y: 0.9, L: [4.65, 2.85, 2.15], R: [0.99, 0.91, 0.82, 0.72], sp: [1.5, 0] },
+  { n: 'ring', x: 8.95, y: -0.95, L: [4.35, 2.7, 2.05], R: [0.94, 0.86, 0.78, 0.68], sp: [-4, -1.5] },
+  { n: 'little', x: 8.35, y: -2.7, L: [3.45, 2.0, 1.85], R: [0.83, 0.76, 0.7, 0.62], sp: [-10, -4] }
+];
+const FLEX = { open: [-6, 2, 2], rest: [20, 34, 20], closed: [76, 96, 56] };
+const CASCADE = [0.88, 1.0, 1.1, 1.2];
+const TFLEX = { open: [-5, -2, 0], rest: [12, 14, 0], closed: [34, 46, 0] };
+const TDIR = { open: [0.62, 0.62, 0.46], rest: [0.78, 0.2, 0.6], closed: [0.62, -0.06, 0.78] };
+function poseAngles(table, g) {
+  const a = table.open, b = table.rest, c = table.closed;
+  return a.map((_, i) => (g < 0 ? lerp(b[i], a[i], -g) : lerp(b[i], c[i], g)) * D2R);
+}
+
+function buildModel(R, colors) {
+  const C = colors;
+  const M = {
+    skin: mat({ color: hexLin(C.skin), rough: 0.55, spec: 0.32, wrap: 0.3, noise: 0.05, noiseScale: 3 }),
+    nail: mat({ color: hexLin(C.nail), rough: 0.3, spec: 0.6, wrap: 0.2 }),
+    fabric: mat({ color: hexLin(C.fabric), rough: 0.95, spec: 0.08, sheen: [0.10, 0.11, 0.14], noise: 0.22, noiseScale: 7 }),
+    fabric2: mat({ color: hexLin(C.fabric2), rough: 0.95, spec: 0.08, sheen: [0.09, 0.10, 0.13], noise: 0.35, noiseScale: 11 }),
+    strip: mat({ color: hexLin(C.strip), rough: 0.8, spec: 0.15, noise: 0.15, noiseScale: 9 }),
+    silicone: mat({ color: hexLin(C.silicone), rough: 0.28, spec: 1.2, wrap: 0.3, opacity: 0.62, fresAlpha: 0.7, transparent: true, tintColor: hexLin(C.accentDeep), emis: [0, 0, 0] }),
+    tube: mat({ color: hexLin(C.tube), rough: 0.25, spec: 1.2, opacity: 0.62, fresAlpha: 0.8, transparent: true }),
+    pod: mat({ color: hexLin(C.navy), rough: 0.34, spec: 0.9 }),
+    cord: mat({ color: hexLin(C.cord), rough: 0.8, spec: 0.2, noise: 0.2, noiseScale: 14 }),
+    led: [],
+    notch: mat({ color: hexLin(C.accent), rough: 0.5, spec: 0.3, emis: V3.scale(hexLin(C.accent), 0.55) }),
+    mark: mat({ color: hexLin(C.mark), rough: 0.7, spec: 0.1 }),
+    manifold: mat({ color: hexLin(C.navy), rough: 0.4, spec: 0.7 }),
+    shell: mat({ color: hexLin(C.shell), rough: 0.45, spec: 0.5 }),
+    shellDark: mat({ color: hexLin(C.navy), rough: 0.5, spec: 0.5 }),
+    slot: mat({ color: hexLin('#20252f'), rough: 0.9, spec: 0.1 }),
+    pumpLed: mat({ color: hexLin('#2a3346'), rough: 0.3, spec: 0.8 }),
+    cup: mat({ color: hexLin(C.cup), rough: 0.7, spec: 0.25, wrap: 0.15, double: 1 }),
+    cupBand: mat({ color: hexLin(C.navy), rough: 0.6, spec: 0.3, double: 1 }),
+    floor: mat({ color: hexLin(C.floor), rough: 1, spec: 0, floor: 1, double: 1 }),
+    flow: mat({ color: hexLin(C.accent), rough: 0.4, spec: 0.3, emis: V3.scale(hexLin(C.accent), 0.6) })
+  };
+  for (let i = 0; i < 8; i++) M.led.push(mat({ color: hexLin('#3a4560'), rough: 0.25, spec: 1.0, emis: [0, 0, 0] }));
+
+  const root = new Node('root'); root.s = [1, 1, -1];
+  const up = g => R.upload(g);
+
+  /* floor */
+  const fg = new Geo(new Float32Array([-90, 0, -90, 90, 0, -90, 90, 0, 90, -90, 0, 90]), new Uint32Array([0, 2, 1, 0, 3, 2]), { open: true, nor: new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]) });
+  const floor = new Node('floor', up(fg), M.floor); floor.p = [0, FLOOR_Y, 0]; floor.castShadow = false; floor.isFloor = true;
+  root.add(floor);
+
+  /* forearm */
+  const rings = [];
+  const N = 44;
+  const ringAt = (x, sc = 1, ex = SE) => {
+    const [ry, rz] = armR(x); if (sc < 1e-4) return [[x, 0, 0]];
+    const out = []; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; out.push([x, sEll(Math.cos(a), ex) * ry * sc, sEll(Math.sin(a), ex) * rz * sc]); } return out;
+  };
+  const x0 = ARM_X[0];
+  for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI / 2; rings.push(ringAt(x0 - 2.6 * Math.cos(a), Math.sin(a))); }
+  for (let x = x0 + 0.5; x <= 2.2; x += 0.5) rings.push(ringAt(x));
+  rings.push(ringAt(2.4, 0.7)); rings.push(ringAt(2.5, 0));
+  const ag = loft(rings);
+  const arm = new Node('forearm', up(new Geo(ag.pos, ag.idx)), M.skin);
+  root.add(arm);
+
+  /* skin alignment mark on the dorsal forearm */
+  {
+    const x = BAND_X + 2.9, th = -90 * D2R, p = armPoint(x, th, 0.0), n = armNormal(x, th);
+    const mk = new Node('mark', up(rboxGeo(1.4, 0.24, 0.06, 0.03, 2, 1)), M.mark);
+    mk.override = M4.basis([1, 0, 0], V3.cross(n, [1, 0, 0]), n, V3.add(p, V3.scale(n, 0.0)));
+    mk.castShadow = false; root.add(mk);
+  }
+
+  /* hand */
+  const hand = new Node('hand'); root.add(hand);
+  // palm (glove covered) as a loft along x
+  const palmRing = (x, sc, off) => {
+    const t = clamp((x - 0) / 9.2, 0, 1);
+    const ry = (lerp(2.95, 4.2, smooth(clamp(t * 1.6, 0, 1))) + off) * sc;
+    const rz = (lerp(1.78, 1.5, t) + off) * sc;
+    const cz = lerp(0, 0.1, t);
+    if (sc < 1e-4) return [[x, 0, cz]];
+    const out = []; for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; out.push([x, sEll(Math.cos(a), 3.1) * ry, sEll(Math.sin(a), 2.4) * rz + cz]); } return out;
+  };
+  const prings = [];
+  prings.push(palmRing(-0.6, 0.0, 0.2));
+  for (let i = 1; i <= 4; i++) { const a = i / 4 * Math.PI / 2; prings.push(palmRing(-0.6 + 0.7 * Math.sin(a) * 0.0 + (i / 4) * 0.6, Math.sin(a), 0.2)); }
+  for (let x = 0.4; x <= 8.8; x += 0.4) prings.push(palmRing(x, 1, 0.2));
+  for (let i = 1; i <= 6; i++) { const a = i / 6 * Math.PI / 2; prings.push(palmRing(8.8 + 1.55 * Math.sin(a), Math.cos(a), 0.2)); }
+  const pg = loft(prings);
+  const palm = new Node('palm', up(new Geo(pg.pos, pg.idx)), M.fabric); hand.add(palm);
+  // thenar
+  const thenar = new Node('thenar', up(capsuleGeo(3.4, 1.35, 1.1, 0.9)), M.fabric);
+  thenar.p = [1.6, 2.55, 0.85]; thenar.r = [0, -0.18, 0.32]; hand.add(thenar);
+  // wrist strap
+  {
+    const sr = [], sN = 44;
+    const strapRing = (x, off) => { const [ry, rz] = armR(x); const out = []; for (let i = 0; i < sN; i++) { const a = i / sN * Math.PI * 2; out.push([x, sEll(Math.cos(a), SE) * (Math.max(ry, 2.95) + off), sEll(Math.sin(a), SE) * (Math.max(rz, 1.8) + off)]); } return out; };
+    const xs = [-1.2, -1.1, -0.9, 2.3, 2.5, 2.6];
+    const offs = [0.0, 0.32, 0.42, 0.42, 0.32, 0.0];
+    xs.forEach((x, i) => sr.push(strapRing(x, offs[i])));
+    const sg = loft(sr);
+    const strap = new Node('strap', up(new Geo(sg.pos, sg.idx, { open: true })), M.fabric2); strap.mat = M.fabric2; hand.add(strap);
+    M.fabric2.double = 1;
+    const tab = new Node('tab', up(rboxGeo(2.6, 2.3, 0.26, 0.12, 3, 2)), M.fabric);
+    tab.p = [0.7, -0.6, -2.4]; hand.add(tab);
+  }
+
+  /* fingers */
+  const fingerNodes = [];
+  const chambers = [];
+  const actuatorRoots = [];
+  for (const f of FINGERS) {
+    const mcp = new Node(f.n + '-mcp'); mcp.p = [f.x, f.y, 0.05]; hand.add(mcp);
+    const segs = [mcp];
+    let parent = mcp;
+    for (let k = 0; k < 3; k++) {
+      const jn = k === 0 ? mcp : new Node(f.n + '-j' + k);
+      if (k > 0) { jn.p = [f.L[k - 1], 0, 0]; parent.add(jn); segs.push(jn); }
+      const r0 = f.R[k], r1 = f.R[k + 1];
+      const bone = new Node(f.n + '-b' + k, up(capsuleGeo(f.L[k], r0, k === 2 ? r1 * 0.92 : r1, 0.86)), M.skin);
+      jn.add(bone);
+      if (k < 2) {
+        const sl = new Node(f.n + '-s' + k, up(capsuleGeo(f.L[k] * (k === 1 ? 0.92 : 1), r0 + 0.14, r1 + 0.14, 0.88)), M.fabric);
+        jn.add(sl);
+        // strain limiting strip and bellows chambers on the back of the finger
+        const rz = (r0 + 0.14) * 0.88;
+        const len = f.L[k] * (k === 1 ? 0.86 : 0.9);
+        const strip = new Node('strip', up(rboxGeo(len, r0 * 1.12, 0.12, 0.05, 2, 2)), M.strip);
+        strip.p = [len / 2 + (k === 0 ? 0.25 : 0.1), 0, -rz - 0.03]; jn.add(strip);
+        const rA = r0 * 0.62, zA = 0.58, st = k === 0 ? 0.35 : 0.15;
+        const ag = up(capsuleGeo(Math.max(len - 2 * rA - 0.1, 0.2), rA, rA * 0.94, zA, 22));
+        const ch = new Node('ch', ag, M.silicone); ch.zA = rA * zA;
+        ch.base = [st + rA, 0, -rz - 0.1 - rA * zA]; ch.p = ch.base.slice(); jn.add(ch); chambers.push(ch);
+      } else {
+        const nail = new Node('nail', up(rboxGeo(0.95, r0 * 1.0, 0.1, 0.05, 3, 1)), M.nail);
+        nail.p = [f.L[2] * 0.66, 0, -r0 * 0.8 + 0.01]; nail.r = [0, 0.08, 0]; jn.add(nail);
+      }
+      parent = jn;
+    }
+    // bridging chamber across the knuckle, attached to the hand
+    const rB = f.R[0] * 0.62;
+    const br = new Node('ch', up(capsuleGeo(0.55, rB, rB, 0.58, 22)), M.silicone); br.zA = rB * 0.58;
+    br.base = [f.x - 0.95, f.y, -1.72 - 0.2 - rB * 0.58]; br.p = br.base.slice(); hand.add(br); chambers.push(br);
+    const cap = new Node('cap', up(rboxGeo(0.75, f.R[0] * 1.0, 0.62, 0.24, 3, 1)), M.manifold);
+    cap.p = [f.x - 1.95, f.y, -1.72 - 0.2 - 0.28]; hand.add(cap);
+    actuatorRoots.push([f.x - 2.0, f.y, -2.2]);
+    fingerNodes.push({ f, segs });
+  }
+
+  /* thumb */
+  const thumb = { segs: [] };
+  {
+    const base = new Node('thumb-cmc'); base.p = [1.7, 3.05, 0.75];  hand.add(base);
+    const L = [3.9, 3.0, 2.5], Rr = [1.18, 1.02, 0.94, 0.8];
+    let parent = base; thumb.segs.push(base);
+    for (let k = 0; k < 3; k++) {
+      const jn = k === 0 ? base : new Node('thumb-j' + k);
+      if (k > 0) { jn.p = [L[k - 1], 0, 0]; parent.add(jn); thumb.segs.push(jn); }
+      const bone = new Node('tb' + k, up(capsuleGeo(L[k], Rr[k], k === 2 ? Rr[k + 1] * 0.92 : Rr[k + 1], 0.9)), k === 2 ? M.skin : M.fabric);
+      jn.add(bone);
+      if (k === 1) {
+        const sl = new Node('ts', up(capsuleGeo(L[k] * 0.9, Rr[k] + 0.14, Rr[k + 1] + 0.14, 0.9)), M.fabric); jn.add(sl);
+        const rz = (Rr[k] + 0.14) * 0.9, len = L[k] * 0.84;
+        const strip = new Node('strip', up(rboxGeo(len, Rr[k] * 1.12, 0.12, 0.05, 2, 2)), M.strip); strip.p = [len / 2 + 0.15, 0, -rz - 0.03]; jn.add(strip);
+        const rA = Rr[k] * 0.62, ag = up(capsuleGeo(Math.max(len - 2 * rA - 0.1, 0.2), rA, rA * 0.94, 0.58, 22));
+        const ch = new Node('ch', ag, M.silicone); ch.zA = rA * 0.58; ch.base = [0.25 + rA, 0, -rz - 0.1 - rA * 0.58]; ch.p = ch.base.slice(); jn.add(ch); chambers.push(ch);
+      }
+      if (k === 2) { const nail = new Node('nail', up(rboxGeo(1.0, Rr[2] * 1.05, 0.1, 0.05, 3, 1)), M.nail); nail.p = [L[2] * 0.64, 0, -Rr[2] * 0.84 + 0.01]; nail.r = [0, 0.08, 0]; jn.add(nail); }
+      parent = jn;
+    }
+    thumb.L = L; thumb.R = Rr;
+  }
+
+  /* wrist manifold and tubes */
+  const manifold = new Node('manifold', up(rboxGeo(1.9, 3.3, 0.8, 0.36, 3, 2)), M.manifold);
+  manifold.p = [3.6, 0.1, -2.35]; hand.add(manifold);
+  const tubeNodes = [];
+  actuatorRoots.forEach(([x, y, z]) => {
+    const path = catmull([[x + 0.3, y, z + 0.05], [x - 0.6, y, z - 0.08], [6.4, y * 0.72, -2.25], [4.9, y * 0.32, -2.42], [4.25, y * 0.25, -2.45]], 6);
+    const t = new Node('tube', up(tubeGeo(path, 0.15, 10)), M.tube); hand.add(t); tubeNodes.push(t);
+  });
+  {
+    const path = catmull([[2.6, 3.9, -0.9], [3.2, 3.2, -1.9], [3.9, 1.95, -2.4], [4.25, 1.7, -2.45]], 6);
+    const t = new Node('tube', up(tubeGeo(path, 0.15, 10)), M.tube); hand.add(t);
+  }
+  // main line to the pump unit
+  const PUMP = [-24.5, FLOOR_Y + 1.75, -13.5];
+  const mainPts = [[2.4, -0.5, -2.45], [0.4, -0.9, -2.75], [-3.2, -1.6, -2.95], [-7.5, -2.6, -3.35], [-10.2, -3.75, -4.6], [-12.2, FLOOR_Y + 0.38, -7.2], [-15.5, FLOOR_Y + 0.36, -10.6], [-18.6, FLOOR_Y + 0.9, -13.2], [-19.6, FLOOR_Y + 1.1, -13.5]];
+  const mainPath = catmull(mainPts, 10);
+  const mainTube = new Node('main', up(tubeGeo(mainPath, 0.36, 14)), M.tube); root.add(mainTube);
+  const mainCore = []; // inner lines visible through the sheath
+  for (let k = 0; k < 3; k++) {
+    const off = [[0, 0.12, 0.0], [0, -0.1, 0.1], [0, -0.06, -0.12]][k];
+    const pth = mainPath.map(p => V3.add(p, off));
+    const t = new Node('core', up(tubeGeo(pth, 0.1, 8)), M.tube); root.add(t); mainCore.push(t);
+  }
+  const flow = [];
+  const fg2 = up(capsuleGeo(0.0001, 0.17, 0.17, 1, 10));
+  for (let i = 0; i < 7; i++) { const d = new Node('flow', fg2, M.flow); d.castShadow = false; d.visible = false; root.add(d); flow.push(d); }
+
+  /* pump unit */
+  const pump = new Node('pump'); pump.p = PUMP; root.add(pump);
+  pump.add(Object.assign(new Node('pbody', up(rboxGeo(9.6, 3.5, 6.4, 0.9, 5, 3)), M.shell)));
+  const panel = new Node('ppanel', up(rboxGeo(4.4, 0.14, 4.2, 0.06, 2, 2)), M.shellDark); panel.p = [-2.0, 1.75, 0.0]; pump.add(panel);
+  for (let i = 0; i < 7; i++) { const s = new Node('slot', up(rboxGeo(0.26, 0.08, 3.6, 0.04, 2, 2)), M.slot); s.p = [1.3 + i * 0.52, 1.76, 0.0]; s.castShadow = false; pump.add(s); }
+  const pled = new Node('pled', up(rboxGeo(0.9, 0.1, 0.32, 0.05, 2, 2)), M.pumpLed); pled.p = [-2.0, 1.84, -1.4]; pump.add(pled);
+  const btn = new Node('pbtn', up(capsuleGeo(0.0001, 0.45, 0.45, 0.25, 16)), M.shell); btn.p = [-2.0, 1.86, 0.8]; btn.r = [0, 0, Math.PI / 2]; pump.add(btn);
+  const port = new Node('port', up(capsuleGeo(0.9, 0.5, 0.42, 1, 14)), M.shellDark); port.p = [4.75, -0.65, 0.0]; pump.add(port);
+  const feetMat = M.slot;
+  for (const [x, z] of [[-4, -2.6], [4, -2.6], [-4, 2.6], [4, 2.6]]) { const ft = new Node('foot', up(rboxGeo(1.0, 0.2, 1.0, 0.08, 2, 1)), feetMat); ft.p = [x, -1.8, z]; pump.add(ft); }
+
+  /* armband */
+  const band = new Node('band'); root.add(band);
+  const podGeo = up(rboxGeo(2.9, 2.2, 0.95, 0.44, 5, 2));
+  const ledGeo = up(rboxGeo(0.62, 0.34, 0.12, 0.05, 2, 1));
+  const notchGeo = up(rboxGeo(1.15, 0.2, 0.07, 0.035, 2, 1));
+  const pods = [];
+  for (let i = 0; i < 8; i++) {
+    const pod = new Node('pod' + i, podGeo, M.pod);
+    const led = new Node('led' + i, ledGeo, M.led[i]); led.p = [-0.75, 0, 0.48]; led.castShadow = false; pod.add(led);
+    if (i === 0) { const nt = new Node('notch', notchGeo, M.notch); nt.p = [0.62, 0, 0.48]; nt.castShadow = false; pod.add(nt); }
+    band.add(pod); pods.push(pod);
+  }
+  const cords = new Node('cords'); band.add(cords);
+  for (const dx of [-0.85, 0.85]) {
+    const pts = []; for (let i = 0; i < 64; i++) { const a = i / 64 * Math.PI * 2; pts.push(armPoint(BAND_X + dx, a, 0.22)); }
+    const c = new Node('cord', up(tubeGeo(pts, 0.17, 8, true)), M.cord); cords.add(c);
+  }
+  function placeBand(th0, dx, lift = 0) {
+    cords.p = [dx, 0, 0];
+    const sc = 1 + lift * 0.08; cords.s = [1, sc, sc];
+    for (let i = 0; i < 8; i++) {
+      const th = th0 + i * Math.PI / 4, x = BAND_X + dx;
+      const p = armPoint(x, th), n = armNormal(x, th);
+      const pos = V3.add(p, V3.scale(n, 0.46 + lift * 0.6));
+      const za = n, xa = [1, 0, 0], ya = V3.cross(za, xa);
+      pods[i].override = M4.basis(xa, ya, za, pos);
+    }
+  }
+  placeBand(-90 * D2R, 0);
+
+  /* cup */
+  const cupProf = [[0, 0], [2.45, 0], [2.55, 0.08], [2.62, 0.4], [3.55, 9.3], [3.64, 9.42], [3.66, 9.52], [3.58, 9.6], [3.49, 9.52], [3.46, 9.35], [2.52, 0.62], [0, 0.62]];
+  const cup = new Node('cup', up(latheGeo(cupProf, 56)), M.cup);
+  const seam = new Node('seam', up(latheGeo([[2.66, 0.9], [2.68, 0.9], [2.7, 1.25], [2.68, 1.25]], 56)), M.cupBand);
+  cup.add(seam);
+  cup.visible = false; root.add(cup);
+
+  return { colors: C, root, M, hand, fingerNodes, thumb, chambers, pods, placeBand, band, flow, mainPath, cup, pled, manifold, pump, PUMP };
+}
+
+/* pose: g per finger in [-1,1] and thumb g */
+function applyPose(model, gs, gt) {
+  model.fingerNodes.forEach(({ f, segs }, i) => {
+    const a = poseAngles(FLEX, gs[i]).map(v => gs[i] > -0.2 ? v * lerp(1, CASCADE[i], clamp(1 - Math.abs(gs[i] - 0.0), 0, 1)) : v);
+    const spread = lerp(f.sp[0], f.sp[1], clamp((gs[i] + 1) / 2, 0, 1)) * D2R;
+    segs[0].r = [0, -a[0], spread];
+    segs[1].r = [0, -a[1], 0];
+    segs[2].r = [0, -a[2], 0];
+  });
+  const t = poseAngles(TFLEX, gt), s = model.thumb.segs;
+  const A = TDIR.open, B = TDIR.rest, Cc = TDIR.closed;
+  const d = V3.norm(gt < 0 ? V3.lerp(B, A, -gt) : V3.lerp(B, Cc, gt));
+  const be = -Math.asin(clamp(d[2], -1, 1)), ga = Math.atan2(d[1], d[0]);
+  const base = M4.trs([0, 0, 0], [0, be, ga], [1, 1, 1]);
+  const y0 = [base[4], base[5], base[6]], z0 = [base[8], base[9], base[10]];
+  let tp = V3.sub([0, -0.55, 0.83], V3.scale(d, V3.dot([0, -0.55, 0.83], d)));
+  const roll = Math.atan2(-V3.dot(tp, y0), V3.dot(tp, z0));
+  s[0].r = [roll, be, ga];
+  s[1].r = [0, -t[0], 0];
+  s[2].r = [0, -t[1], 0];
+}
+
+/* pressure: chambers swell when inflated, flatten under vacuum */
+function applyPressure(model, p01) {
+  const M = model.M;
+  const pos = Math.max(p01, 0), neg = Math.max(-p01, 0);
+  for (const ch of model.chambers) {
+    const sz = 1 + 0.32 * pos - 0.22 * neg, sy = 1 + 0.1 * pos - 0.03 * neg;
+    ch.s = [1, sy, sz];
+    ch.p = [ch.base[0], ch.base[1], ch.base[2] - ch.zA * (sz - 1)];
+  }
+  M.silicone.tint = 0.7 * pos; M.silicone.emis = V3.scale(hexLin(model.colors.accentDeep), 0.16 * pos);
+  M.silicone.opacity = 0.62 + 0.12 * pos - 0.08 * neg;
+}
+
+/* cup contact: highest g each finger can reach before touching the cup */
+const CUP_POS = [8.1, FLOOR_Y, 5.4];
+function cupRadiusAt(y) { const t = (y - FLOOR_Y - 0.4) / 8.9; return t < -0.06 || t > 1.02 ? -1 : lerp(2.62, 3.55, clamp(t, 0, 1)); }
+function computeCupLimits(model) {
+  model.root.update(null);
+  const handW = model.hand.world;
+  const ax = CUP_POS[0], az = CUP_POS[2] * model.root.s[2];
+  const hits = pts => pts.some(([p, r]) => { const rc = cupRadiusAt(p[1]); return rc > 0 && Math.hypot(p[0] - ax, p[2] - az) < rc + r; });
+  const chainPts = (segs, Ls, Rs, rots) => {
+    let W = handW; const pts = [];
+    for (let k = 0; k < segs.length; k++) {
+      W = M4.mul(W, M4.trs(segs[k].p, rots[k], [1, 1, 1]));
+      const L = Ls[k], r = Rs[k] + (k < 2 ? 0.16 : 0.02);
+      for (const t of [0.15, 0.5, 0.85, 1]) pts.push([M4.apply(W, [L * t, 0, 0]), r]);
+      if (k === segs.length - 1) pts.push([M4.apply(W, [L + Rs[k + 1] * 0.8, 0, 0]), Rs[k + 1]]);
+    }
+    return pts;
+  };
+  const lim = [];
+  model.fingerNodes.forEach(({ f, segs }, i) => {
+    let g = -1, last = -1;
+    for (; g <= 1.0001; g += 0.02) {
+      const gs = [0, 0, 0, 0]; gs[i] = g; applyPose(model, gs, 0);
+      if (hits(chainPts(segs, f.L, f.R, segs.map(s => s.r.slice())))) break;
+      last = g;
+    }
+    lim.push(last);
+  });
+  let tl = -1;
+  for (let g = -1; g <= 1.0001; g += 0.02) {
+    applyPose(model, [0, 0, 0, 0], g);
+    const s = model.thumb.segs;
+    if (hits(chainPts(s, model.thumb.L, model.thumb.R, s.map(n => n.r.slice())))) break;
+    tl = g;
+  }
+  lim.push(tl);
+  return lim;
+}
+
+/* frame drawing */
+const LIGHT = {
+  key: V3.norm([-0.38, 1.0, 0.6]), fill: V3.norm([0.85, 0.3, -0.5]), rim: V3.norm([0.3, 0.55, -0.95])
+};
+const AOBOX = [-40, -32, 70, 64]; // x0, z0, w, h
+
+function drawFrame(R, model, cam, env) {
+  const gl = R.gl, cv = R.canvas;
+  model.root.update(null);
+  const items = []; model.root.walk(n => { if (n.geo && n.mat) items.push(n); });
+  const casters = items.filter(n => n.castShadow && !n.isFloor && n.mat.opacity > 0.3);
+
+  // shadow pass
+  const c = [-7, -1, 3];
+  const lv = M4.lookAt(V3.add(c, V3.scale(LIGHT.key, 70)), c, [0, 1, 0]);
+  const lp = M4.ortho(-34, 34, -30, 30, 20, 130);
+  const lvp = M4.mul(lp, lv);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, R.shadowFB); gl.viewport(0, 0, R.SM, R.SM);
+  gl.clear(gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.colorMask(false, false, false, false);
+  gl.useProgram(R.dprog); gl.uniformMatrix4fv(R.du.uVP, false, lvp); gl.uniform1f(R.du.uFloorY, FLOOR_Y);
+  gl.disable(gl.CULL_FACE);
+  for (const n of casters) { gl.uniformMatrix4fv(R.du.uModel, false, n.world); gl.bindVertexArray(n.geo.vao); gl.drawElements(gl.TRIANGLES, n.geo.count, gl.UNSIGNED_INT, 0); }
+  gl.colorMask(true, true, true, true);
+
+  // contact occlusion on the floor (top-down)
+  const [ax, az, aw, ah] = AOBOX;
+  const tv = M4.lookAt([ax + aw / 2, 60, az + ah / 2], [ax + aw / 2, 0, az + ah / 2], [0, 0, -1]);
+  const tp = M4.ortho(-aw / 2, aw / 2, -ah / 2, ah / 2, 1, 80);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, R.aoFB[0]); gl.viewport(0, 0, R.AO, R.AO);
+  gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND); gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.uniformMatrix4fv(R.du.uVP, false, M4.mul(tp, tv));
+  for (const n of casters) { gl.uniformMatrix4fv(R.du.uModel, false, n.world); gl.bindVertexArray(n.geo.vao); gl.drawElements(gl.TRIANGLES, n.geo.count, gl.UNSIGNED_INT, 0); }
+  gl.blendEquation(gl.FUNC_ADD); gl.disable(gl.BLEND);
+  gl.useProgram(R.bprog); gl.bindVertexArray(R.quad); gl.uniform1i(R.bu.uTex, 0); gl.activeTexture(gl.TEXTURE0);
+  for (let pass = 0; pass < 3; pass++) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, R.aoFB[1]); gl.bindTexture(gl.TEXTURE_2D, R.aoTex[0]); gl.uniform2f(R.bu.uDir, 1 / R.AO, 0); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, R.aoFB[0]); gl.bindTexture(gl.TEXTURE_2D, R.aoTex[1]); gl.uniform2f(R.bu.uDir, 0, 1 / R.AO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  // main pass
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, cv.width, cv.height);
+  const bg = env.bg;
+  gl.clearColor(bg[0], bg[1], bg[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+  const P = gl.useProgram(R.prog), u = R.u;
+  const asp = cv.width / cv.height;
+  const proj = M4.persp(cam.fov, asp, 1, 400), view = M4.lookAt(cam.pos, cam.target, [0, 1, 0]);
+  const vp = M4.mul(proj, view);
+  gl.uniformMatrix4fv(u.uVP, false, vp); gl.uniformMatrix4fv(u.uLVP, false, lvp);
+  gl.uniform3fv(u.uCam, cam.pos); gl.uniform3fv(u.uBg, bg);
+  gl.uniform3fv(u.uKeyDir, LIGHT.key); gl.uniform3fv(u.uFillDir, LIGHT.fill); gl.uniform3fv(u.uRimDir, LIGHT.rim);
+  gl.uniform3fv(u.uKeyCol, env.key); gl.uniform3fv(u.uFillCol, env.fill); gl.uniform3fv(u.uRimCol, env.rim);
+  gl.uniform3fv(u.uSky, env.sky); gl.uniform3fv(u.uGround, env.ground); gl.uniform1f(u.uExposure, env.exposure);
+  gl.uniform1f(u.uFloorR0, env.floorR0); gl.uniform1f(u.uFloorR1, env.floorR1);
+  gl.uniform4fv(u.uAOBox, AOBOX);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.shadowTex); gl.uniform1i(u.uShadow, 1);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, R.aoTex[0]); gl.uniform1i(u.uAO, 2);
+  const setMat = m => {
+    gl.uniform3fv(u.uColor, m.color); gl.uniform3fv(u.uSheen, m.sheen); gl.uniform3fv(u.uEmis, m.emis);
+    gl.uniform1f(u.uRough, m.rough); gl.uniform1f(u.uSpec, m.spec); gl.uniform1f(u.uWrap, m.wrap); gl.uniform1f(u.uOpacity, m.opacity);
+    gl.uniform1f(u.uNoise, m.noise); gl.uniform1f(u.uNoiseScale, m.noiseScale); gl.uniform1f(u.uFloor, m.floor); gl.uniform1f(u.uFresAlpha, m.fresAlpha);
+    gl.uniform1f(u.uDouble, m.double); gl.uniform1f(u.uTint, m.tint); gl.uniform3fv(u.uTintColor, m.tintColor);
+  };
+  const drawNode = n => {
+    gl.uniformMatrix4fv(u.uModel, false, n.world); gl.uniformMatrix3fv(u.uNM, false, M4.normal3(n.world));
+    gl.bindVertexArray(n.geo.vao); gl.drawElements(gl.TRIANGLES, n.geo.count, gl.UNSIGNED_INT, 0);
+  };
+  gl.frontFace(model.root.s[2] < 0 ? gl.CW : gl.CCW);
+  const opaque = items.filter(n => !n.mat.transparent), trans = items.filter(n => n.mat.transparent);
+  for (const n of opaque) {
+    setMat(n.mat);
+    if (n.mat.double || n.geo.open) gl.disable(gl.CULL_FACE); else { gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); }
+    drawNode(n);
+  }
+  // transparent, back to front
+  const dist = n => { const w = n.world; return Math.hypot(w[12] - cam.pos[0], w[13] - cam.pos[1], w[14] - cam.pos[2]); };
+  trans.sort((a, b) => dist(b) - dist(a));
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); gl.enable(gl.CULL_FACE);
+  for (const n of trans) {
+    setMat(n.mat);
+    gl.cullFace(gl.FRONT); drawNode(n);
+    gl.cullFace(gl.BACK); drawNode(n);
+  }
+  gl.depthMask(true); gl.disable(gl.BLEND); gl.disable(gl.CULL_FACE); gl.frontFace(gl.CCW);
+  return vp;
+}
+
+function orbitCam(o) {
+  const ce = Math.cos(o.el);
+  return { target: o.target, fov: o.fov || 0.62, pos: [o.target[0] + o.dist * ce * Math.sin(o.az), o.target[1] + o.dist * Math.sin(o.el), o.target[2] + o.dist * ce * Math.cos(o.az)] };
+}
+
+/* app: signal simulation, control logic, ui */
+(function () {
+  const $ = id => document.getElementById(id);
+  const canvas = $('gl');
+  const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* theme */
+  const css = () => getComputedStyle(document.documentElement);
+  const toLin = hex => hexLin(hex.trim());
+  const toDisp = hex => { const n = parseInt(hex.trim().replace('#', ''), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+  function readTheme() {
+    const c = css(), dark = c.getPropertyValue('color-scheme').includes('dark');
+    return {
+      dark, bg: toDisp(c.getPropertyValue('--scene')), floor: c.getPropertyValue('--floor').trim(),
+      ink: c.getPropertyValue('--trace').trim(), ink3: c.getPropertyValue('--ink-3').trim(), accent: c.getPropertyValue('--accent').trim(),
+      line: c.getPropertyValue('--line').trim(), chip: c.getPropertyValue('--chip').trim(), bad: c.getPropertyValue('--bad').trim(), ink2: c.getPropertyValue('--ink-2').trim()
+    };
+  }
+  let theme = readTheme();
+
+  /* renderer + model */
+  let R, model;
+  const COLORS = { skin: '#cdc3ba', nail: '#ddd5ce', fabric: '#2a2e36', fabric2: '#30353f', strip: '#3d434f', silicone: '#b9c3ce', tube: '#dfe6ec', navy: '#14213D', cord: '#1c2333', accent: '#F9B384', accentDeep: '#ff8a3d', mark: '#d0703f', shell: '#eceef2', cup: '#f3f4f6', floor: '#e7e9ee' };
+  try {
+    R = new Renderer(canvas);
+    model = buildModel(R, COLORS);
+  } catch (e) {
+    const d = document.createElement('div'); d.className = 'nogl';
+    d.textContent = 'This browser can’t draw the 3D model (WebGL 2 is off or unsupported). Try a recent Chrome, Safari, Edge or Firefox.';
+    canvas.parentNode.appendChild(d); canvas.remove(); return;
+  }
+  function envFor(t) {
+    const dark = t.dark;
+    return {
+      bg: t.bg, exposure: dark ? 0.95 : 1.0, floorR0: 24, floorR1: 50,
+      key: dark ? [1.45, 1.4, 1.36] : [1.75, 1.68, 1.6], fill: dark ? [0.32, 0.38, 0.5] : [0.42, 0.47, 0.56], rim: dark ? [0.6, 0.66, 0.8] : [0.55, 0.56, 0.62],
+      sky: dark ? [0.2, 0.23, 0.3] : [0.3, 0.32, 0.36], ground: dark ? [0.08, 0.08, 0.1] : [0.15, 0.13, 0.12]
+    };
+  }
+  let env = envFor(theme);
+  function applyTheme() { theme = readTheme(); env = envFor(theme); model.M.floor.color = hexLin(theme.floor); drawScales(); }
+  model.M.floor.color = hexLin(theme.floor);
+  if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  /* random */
+  const gauss = () => { let u = 0; while (!u) u = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random()); };
+
+  /* armband placements */
+  const PLACE = {
+    day1: { th: -90, dx: 0, gain: [1, 1, 1, 1, 1, 1, 1, 1], noise: 0.03 },
+    day2: { th: -60, dx: 1.0, gain: [0.4, 0.9, 1.3, 1.5, 1.3, 0.9, 0.45, 0.35], noise: 0.03 },
+    loose: { th: -35, dx: 2.6, gain: [0.25, 0.2, 0.04, 0.04, 0.2, 0.25, 0.25, 0.2], noise: 0.25 },
+    aligned: { th: -86, dx: 0.3, gain: [1.1, 0.95, 1.0, 1.05, 0.9, 1.0, 1.1, 0.95], noise: 0.03 }
+  };
+  const MUS = { flex: { th: 75 * D2R, gain: 1.0, w: 1.0 }, ext: { th: -100 * D2R, gain: 0.45, w: 1.0 } };
+  function chanAmps(pl, act) {
+    const a = new Float32Array(8);
+    const along = Math.exp(-pl.dx * pl.dx / 32);
+    for (let i = 0; i < 8; i++) {
+      const th = (pl.th + i * 45) * D2R; let s = 0;
+      for (const k in MUS) { const m = MUS[k]; const d = Math.atan2(Math.sin(th - m.th), Math.cos(th - m.th)); s += act[k] * m.gain * Math.exp(-d * d / (2 * m.w * m.w)); }
+      a[i] = s * pl.gain[i] * along;
+    }
+    return a;
+  }
+  const noiseOf = pl => pl.gain.map(g => pl.noise * (pl.noise > 0.1 ? 1 : Math.sqrt(g)));
+
+  /* classifier: nearest class mean with a shared spread, like LDA with identity covariance */
+  const CLASSES = ['rest', 'open', 'close'];
+  const SPREAD = 1.2;
+  let SKIP = 0.1, EFF_LO = 0.2;
+  function posterior(f, mdl) {
+    const e = CLASSES.map(k => { let d = 0; for (let i = 0; i < 8; i++) { const q = f[i] - mdl.mu[k][i]; d += q * q; } return -d / (2 * SPREAD * SPREAD); });
+    const m = Math.max(...e), ex = e.map(v => Math.exp(v - m)), s = ex.reduce((a, b) => a + b, 0);
+    return ex.map(v => v / s);
+  }
+  // simulate the routine offline (used to build the day 1 model at load)
+  const ACT = { rest: { flex: 0, ext: 0 }, open: { flex: 0.3, ext: 1 }, close: { flex: 1, ext: 0.3 } };
+  function offlineWindow(pl, act, noise) {
+    const e = Math.exp(0.3 * gauss()), amps = chanAmps(pl, { flex: act.flex * e, ext: act.ext * e }), f = new Float32Array(8);
+    for (let i = 0; i < 8; i++) { let ss = 0, ar = 0; for (let n = 0; n < 150; n++) { ar = 0.6 * ar + 0.8 * gauss(); const x = amps[i] * ar + noise[i] * gauss(); ss += x * x; } f[i] = Math.log(Math.sqrt(ss / 150) + 1e-4); }
+    return f;
+  }
+  function fitModel(samples) {
+    // samples: [{k, rep, f(raw)}]
+    const rest = samples.filter(s => s.k === 'rest');
+    const base = new Float32Array(8); rest.forEach(s => { for (let i = 0; i < 8; i++) base[i] += s.f[i] / rest.length; });
+    const norm = samples.map(s => ({ k: s.k, rep: s.rep, f: s.f.map((v, i) => v - base[i]) }));
+    const meanOf = arr => { const m = new Float32Array(8); arr.forEach(s => { for (let i = 0; i < 8; i++) m[i] += s.f[i] / arr.length; }); return m; };
+    const mu = {}; CLASSES.forEach(k => { mu[k] = meanOf(norm.filter(s => s.k === k)); });
+    // leave one rep out: share of windows read correctly and confidently
+    let ok = 0, tot = 0;
+    for (const k of CLASSES) for (let r = 0; r < 5; r++) {
+      const test = norm.filter(s => s.k === k && s.rep === r); if (!test.length) continue;
+      const mu2 = {}; CLASSES.forEach(c => { mu2[c] = meanOf(norm.filter(s => s.k === c && !(c === k && s.rep === r))); });
+      for (const s of test) { const p = posterior(s.f, { mu: mu2 }); const j = p.indexOf(Math.max(...p)); if (CLASSES[j] === k) ok++; tot++; }
+    }
+    return { mu, base, acc: tot ? ok / tot : 0 };
+  }
+  function offlineModel(pl) {
+    const noise = noiseOf(pl), samples = [];
+    for (const k of CLASSES) for (let r = 0; r < 5; r++) for (let n = 0; n < 23; n++) samples.push({ k, rep: r, f: offlineWindow(pl, ACT[k], noise) });
+    return fitModel(samples);
+  }
+
+  /* state */
+  const S = {
+    t: 0, place: PLACE.day1, model: null, day: 1, modelDay: 1, checked: true,
+    mode: 'active', // active | unchecked | calibrating | reposition | fault | nopower | idle
+    input: { open: false, close: false, both: false }, act: { flex: 0, ext: 0 }, eff: 0,
+    buf: Array.from({ length: 8 }, () => new Float32Array(4096)), w: 0, ar: new Float32Array(8), sinceWin: 0,
+    rms: new Float32Array(8), post: [1, 0, 0], top: 0, streak: 0, lastTop: -1, cmd: 'hold',
+    P: 0, Ptarget: 0, Pheld: 0, g: [0, 0, 0, 0, 0], lim: [1, 1, 1, 1, 1], cup: false, overLimit: 0, jam: false, powered: true,
+    onset: null, latency: null, lastCmdT: 0, fails: 0, check: null, bandAnim: null, thDraw: -90, dxDraw: 0, lift: 0
+  };
+  S.model = offlineModel(PLACE.day1);
+
+  /* log + status */
+  const logEl = $('log'); const logs = [];
+  const fmtT = t => { const s = Math.floor(t), ms = Math.floor((t - s) * 1000); const m = Math.floor(s / 60); return String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0') + '.' + String(ms).padStart(3, '0'); };
+  function log(msg) { logs.unshift(fmtT(S.t) + '  ' + msg); logs.length = Math.min(logs.length, 4); logEl.innerHTML = ''; logs.forEach(l => { const d = document.createElement('div'); d.textContent = l; logEl.appendChild(d); }); }
+  function status(id, text, kind) { const el = $(id); el.textContent = text || ''; el.dataset.k = kind || ''; }
+  const PILL = {
+    active: ['ACTIVE', () => S.modelDay === 2 || S.day === 2 ? 'Glove on, checked today' : 'Glove on, day 1 model'],
+    unchecked: ['NOT CHECKED', () => 'Day 2, yesterday’s model'],
+    calibrating: ['CHECKING', () => 'Glove off while it records'],
+    reposition: ['REPOSITION', () => 'Glove off, placement check failed'],
+    fault: ['FAULT', () => 'Pressure over limit, vented'],
+    nopower: ['NO POWER', () => 'Valves open, glove vented'],
+    idle: ['IDLE', () => 'Power back, press Resume']
+  };
+  function setMode(m) {
+    S.mode = m; const [tag, txt] = PILL[m];
+    $('pill').dataset.s = m; $('pillTag').textContent = tag; $('pillTxt').textContent = txt();
+    $('hOpen').disabled = m === 'calibrating'; $('hClose').disabled = m === 'calibrating';
+    updateButtons();
+  }
+
+  /* simulation step */
+  const glovesLive = () => S.powered && (S.mode === 'active' || S.mode === 'unchecked');
+  function simStep(dt) {
+    const speed = S.check ? 3 : 1;
+    const sdt = dt * speed;
+    S.t += sdt;
+    // muscle activation targets
+    let tf = 0, te = 0;
+    if (S.check) { const c = S.check.cur; if (c) { tf = ACT[c.k].flex * c.eff; te = ACT[c.k].ext * c.eff; } }
+    else {
+      if (S.input.both) { tf = 1; te = 1; }
+      else if (S.input.close) { tf = 1; te = 0.3; }
+      else if (S.input.open) { tf = 0.3; te = 1; }
+    }
+    const rise = 1 - Math.exp(-sdt / 0.045), fall = 1 - Math.exp(-sdt / 0.08);
+    S.act.flex += (tf - S.act.flex) * (tf > S.act.flex ? rise : fall);
+    S.act.ext += (te - S.act.ext) * (te > S.act.ext ? rise : fall);
+    S.eff += -S.eff / 0.3 * sdt + 0.28 * Math.sqrt(sdt) * gauss();
+    const e = Math.exp(S.eff * 0.8);
+    const amps = chanAmps(S.place, { flex: S.act.flex * e, ext: S.act.ext * e });
+    const noise = noiseOf(S.place);
+    let n = Math.min(Math.round(sdt * 1000), 200);
+    for (let s = 0; s < n; s++) {
+      for (let i = 0; i < 8; i++) { S.ar[i] = 0.6 * S.ar[i] + 0.8 * gauss(); S.buf[i][S.w & 4095] = amps[i] * S.ar[i] + noise[i] * gauss(); }
+      S.w++; S.sinceWin++;
+      if (S.sinceWin >= 50) { S.sinceWin = 0; onWindow(S.t - (n - s) / 1000); }
+    }
+    // check routine timeline
+    if (S.check) advanceCheck(sdt);
+    // glove pressure
+    let target = S.P;
+    if (!S.powered || S.mode === 'fault' || S.mode === 'calibrating' || S.mode === 'reposition' || S.mode === 'idle') target = 0;
+    else if (S.jam) target = 95;
+    else if (S.cmd === 'close') target = 45;
+    else if (S.cmd === 'open') target = -25;
+    S.Ptarget = target;
+    const vent = target === 0 && (!S.powered || S.mode !== 'active');
+    const tau = vent ? 0.14 : 0.16, maxRate = S.jam ? 40 : 170;
+    const dP = (target - S.P) * (1 - Math.exp(-sdt / tau));
+    const prevP = S.P;
+    S.P += clamp(dP, -maxRate * sdt * (vent ? 3 : 1), maxRate * sdt);
+    if (Math.abs(S.P) < 0.05 && target === 0) S.P = 0;
+    // pressure limit
+    if (S.P > 60 && S.mode !== 'fault') { S.overLimit += sdt; if (S.overLimit > 0.2) { S.jam = false; S.cmd = 'hold'; setMode('fault'); log('Pressure ' + S.P.toFixed(0) + ' kPa over 60 for 200 ms. Vented'); status('s3Status', 'Fault. The software vented the glove and won’t move it until you clear the fault.', 'bad'); $('jamBtn').textContent = 'Clear fault'; } }
+    else S.overLimit = 0;
+    // latency: first visible pressure change after the user started a move
+    if (S.onset !== null && Math.abs(S.P - prevP) > 0 && Math.abs(S.P - S.Pheld) > 1.5) {
+      S.latency = (S.t - S.onset) * 1000 + 30; S.onset = null; $('kL').textContent = Math.round(S.latency) + ' ms';
+    }
+    // fingers follow pressure; at zero pressure the hand sits in its resting curl
+    const geq = S.P > 0 ? clamp(S.P / 45, 0, 1.25) : clamp(S.P / 25, -1, 0);
+    const k = 1 - Math.exp(-sdt / 0.16);
+    for (let i = 0; i < 5; i++) {
+      const tgt = Math.min(geq, S.lim[i]);
+      S.g[i] += (tgt - S.g[i]) * k; S.g[i] = Math.min(S.g[i], S.lim[i]);
+    }
+    // rms for leds
+    for (let i = 0; i < 8; i++) { let ss = 0; for (let j = 1; j <= 60; j++) { const v = S.buf[i][(S.w - j) & 4095]; ss += v * v; } S.rms[i] += (Math.sqrt(ss / 60) - S.rms[i]) * 0.3; }
+  }
+
+  function onWindow(t) {
+    const f = new Float32Array(8);
+    for (let i = 0; i < 8; i++) { let ss = 0; for (let j = 1; j <= 150; j++) { const v = S.buf[i][(S.w - j) & 4095]; ss += v * v; } f[i] = Math.log(Math.sqrt(ss / 150) + 1e-4); }
+    if (S.check) { S.check.collect(f); return; }
+    const fn = f.map((v, i) => v - S.model.base[i]);
+    const p = posterior(fn, S.model); S.post = p;
+    const top = p.indexOf(Math.max(...p)); S.top = top;
+    if (p[top] >= 0.8) { S.streak = top === S.lastTop ? S.streak + 1 : 1; S.lastTop = top; } else { S.streak = 0; S.lastTop = -1; }
+    if (S.streak >= 2) {
+      const c = CLASSES[top];
+      const next = c === 'rest' ? 'hold' : c;
+      if (next !== S.cmd) {
+        S.cmd = next; S.Pheld = S.P;
+        if (glovesLive() && next !== 'hold') log((next === 'close' ? 'Close' : 'Open') + ' accepted after 2 windows at ' + p[top].toFixed(2));
+      }
+    } else if (p[top] < 0.8 && S.cmd !== 'hold') {
+      S.cmd = 'hold'; S.Pheld = S.P;
+    }
+  }
+
+  /* inputs */
+  function press(kind, on) {
+    if (S.input[kind] === on) return;
+    S.input[kind] = on;
+    const btn = kind === 'open' ? $('hOpen') : kind === 'close' ? $('hClose') : $('bothBtn');
+    btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { S.onset = S.t; S.Pheld = S.P; } else if (!S.input.open && !S.input.close && !S.input.both) S.onset = null;
+    if (on && kind === 'both') log('Both muscle groups tensed');
+    if (on && S.mode === 'unchecked' && kind === 'open') status('s2Status', 'Watch the Open bar. Yesterday’s model doesn’t recognize today’s open signal, so the glove holds still. Run the check.', 'warn');
+  }
+  function bindHold(btn, kind) {
+    const down = e => { if (btn.disabled) return; e.preventDefault(); btn.setPointerCapture?.(e.pointerId); press(kind, true); };
+    const up = () => press(kind, false);
+    btn.addEventListener('pointerdown', down);
+    btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('lostpointercapture', up);
+    btn.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); if (!btn.disabled) press(kind, true); } });
+    btn.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); press(kind, false); } });
+    btn.addEventListener('contextmenu', e => e.preventDefault());
+  }
+  bindHold($('hOpen'), 'open'); bindHold($('hClose'), 'close'); bindHold($('bothBtn'), 'both');
+  const keyMap = { o: 'open', c: 'close', b: 'both' };
+  window.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
+    const k = keyMap[e.key.toLowerCase()]; if (!k || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (S.mode === 'calibrating') return; press(k, true);
+  });
+  window.addEventListener('keyup', e => { const k = keyMap[e.key.toLowerCase()]; if (k) press(k, false); });
+  window.addEventListener('blur', () => { press('open', false); press('close', false); press('both', false); });
+
+  /* cup */
+  function updateButtons() {
+    const open = Math.max(...S.g.slice(0, 4)) < -0.5;
+    const cb = $('cupBtn');
+    cb.textContent = S.cup ? 'Take the cup away' : 'Put a cup in the hand';
+    cb.disabled = !open;
+    $('cupHint').hidden = open;
+    $('checkBtn').disabled = !(S.day === 2) || S.mode === 'calibrating' || !S.powered || S.mode === 'fault';
+    $('offBtn').disabled = S.mode === 'calibrating' || S.day === 2;
+    $('looseBtn').disabled = S.mode === 'calibrating';
+    $('day1Btn').disabled = S.mode === 'calibrating';
+  }
+  $('cupBtn').addEventListener('click', () => {
+    S.cup = !S.cup;
+    model.cup.visible = S.cup; model.cup.p = CUP_POS.slice();
+    if (S.cup) { const saved = S.g.slice(); S.lim = computeCupLimits(model); applyPose(model, saved.slice(0, 4), saved[4]); log('Cup placed. Hold Close to grip it'); status('s1Status', 'Hold Close. The glove inflates until the fingers meet the cup, then keeps a steady grip when you let go.', 'info'); }
+    else { S.lim = [1, 1, 1, 1, 1]; log('Cup removed'); status('s1Status', '', ''); }
+    updateButtons();
+  });
+
+  /* next day */
+  function moveBand(to, label) {
+    const from = { th: S.thDraw, dx: S.dxDraw };
+    S.bandAnim = { t: 0, dur: reduceMotion ? 0.01 : 1.6, from, to: { th: to.th, dx: to.dx } };
+    S.place = to;
+    if (label) log(label);
+  }
+  $('offBtn').addEventListener('click', () => {
+    S.day = 2; S.modelDay = 1; S.cmd = 'hold'; S.fails = 0;
+    moveBand(PLACE.day2, 'Armband back on, 30° around and 1 cm lower');
+    setMode('unchecked');
+    status('s2Status', 'Day 2. The armband went back on 30° around from yesterday, and skin contact changed. Hold Open: yesterday’s model doesn’t recognize it.', 'warn');
+    $('alignBtn').hidden = true;
+    flyTo('band');
+  });
+  $('looseBtn').addEventListener('click', () => {
+    S.day = 2; S.modelDay = 1; S.cmd = 'hold';
+    moveBand(PLACE.loose, 'Armband on loose and far from the mark');
+    setMode('unchecked'); status('s2Status', 'The armband is loose and twisted, and two sensors barely touch the skin. Run the check and see what happens.', 'warn');
+    $('alignBtn').hidden = true; flyTo('band');
+  });
+  $('alignBtn').addEventListener('click', () => {
+    moveBand(PLACE.aligned, 'Armband lined up with the mark and tightened');
+    status('s2Status', 'Lined up. Run the check again.', 'info'); $('alignBtn').hidden = true; setMode('unchecked'); updateButtons();
+  });
+  $('day1Btn').addEventListener('click', () => {
+    S.day = 1; S.modelDay = 1; S.fails = 0; S.model = offlineModel(PLACE.day1); moveBand(PLACE.day1, 'Reset to day 1');
+    S.cmd = 'hold'; setMode(S.powered ? 'active' : 'nopower'); status('s2Status', '', ''); $('alignBtn').hidden = true;
+  });
+  $('checkBtn').addEventListener('click', startCheck);
+
+  function startCheck() {
+    if (S.check) return;
+    press('open', false); press('close', false); press('both', false);
+    const segs = [{ k: 'rest', dur: 5, label: 'Rest', rep: -1, eff: 1 }];
+    for (const k of ['open', 'close']) for (let r = 0; r < 5; r++) { segs.push({ k, dur: 1.5, label: (k === 'open' ? 'Open your hand' : 'Close your hand'), rep: r, eff: EFF_LO + (1.1 - EFF_LO) * Math.random() }); segs.push({ k: 'rest', dur: 1.0, label: 'Relax', rep: -2, eff: 1 }); }
+    const total = segs.reduce((a, s) => a + s.dur, 0);
+    const samples = [];
+    S.check = {
+      segs, i: 0, tIn: 0, el: 0, total, cur: segs[0],
+      collect(f) {
+        const c = this.cur; if (!c) return;
+        if (c.rep === -1) samples.push({ k: 'rest', rep: Math.min(4, Math.floor(this.tIn / 1.0)), f });
+        else if (c.rep >= 0 && this.tIn > SKIP) samples.push({ k: c.k, rep: c.rep, f });
+      },
+      samples
+    };
+    S.cmd = 'hold'; setMode('calibrating'); $('cue').hidden = false;
+    log('Check started. Glove off');
+    status('s2Status', 'Recording. Follow the cue on the model.', 'info');
+    flyTo('all');
+  }
+  function advanceCheck(dt) {
+    const c = S.check; c.tIn += dt; c.el += dt;
+    while (c.cur && c.tIn >= c.cur.dur) { c.tIn -= c.cur.dur; c.i++; c.cur = c.segs[c.i]; }
+    const cur = c.cur;
+    $('cueBar').style.width = (100 * Math.min(c.el / c.total, 1)).toFixed(1) + '%';
+    $('cueSub').textContent = Math.min(c.el, c.total).toFixed(0) + ' of ' + c.total.toFixed(0) + ' s, shown 3× faster';
+    if (cur) { $('cueBig').textContent = cur.rep >= 0 ? cur.label + ' ' + (cur.rep + 1) + ' of 5' : cur.label; }
+    if (!cur) finishCheck();
+  }
+  function finishCheck() {
+    const res = fitModel(S.check.samples); S.check = null; $('cue').hidden = true;
+    const pct = Math.round(res.acc * 100);
+    if (res.acc >= 0.7) {
+      S.model = res; S.modelDay = 2; S.fails = 0; setMode('active');
+      log('Check ' + pct + '%. Model updated, glove on');
+      status('s2Status', 'Check passed at ' + pct + '%, over the 70% bar. Only the average for each move changed. Hold Open again.', 'good');
+      $('alignBtn').hidden = true;
+    } else {
+      S.fails++; setMode('reposition');
+      log('Check ' + pct + '%. Under 70%, glove stays off');
+      if (S.fails >= 2) status('s2Status', 'Check failed again at ' + pct + '%. In real use this falls back to full training with a therapist. Line up the mark and try once more.', 'bad');
+      else status('s2Status', 'Check came in at ' + pct + '%, under the 70% bar. The glove stays off. Line up the armband with the mark on the forearm and run it again.', 'bad');
+      $('alignBtn').hidden = false;
+    }
+    updateButtons();
+  }
+
+  /* safety */
+  $('powerBtn').addEventListener('click', () => {
+    if (S.powered) {
+      S.powered = false; S.jam = false; S.cmd = 'hold'; setMode('nopower');
+      $('powerBtn').textContent = 'Restore power';
+      log('Power cut. Valves open, glove venting');
+      status('s3Status', 'The valves are open with no power, so air leaves the glove and the hand settles back to rest.', 'warn');
+    } else if (S.mode === 'nopower') {
+      S.powered = true; setMode('idle'); $('powerBtn').textContent = 'Resume';
+      log('Power back. Waiting for Resume');
+      status('s3Status', 'Power is back but the glove waits. It never picks up an old grip on its own.', 'info');
+    } else {
+      setMode(S.day === 2 && S.modelDay === 1 ? 'unchecked' : 'active'); S.cmd = 'hold'; $('powerBtn').textContent = 'Cut the power';
+      log('Session resumed'); status('s3Status', '', '');
+    }
+  });
+  $('jamBtn').addEventListener('click', () => {
+    if (S.mode === 'fault') { setMode(S.day === 2 && S.modelDay === 1 ? 'unchecked' : 'active'); S.cmd = 'hold'; $('jamBtn').textContent = 'Jam a valve'; log('Fault cleared'); status('s3Status', '', ''); return; }
+    if (!glovesLive()) { status('s3Status', 'Turn the glove back on first.', 'warn'); return; }
+    S.jam = true; S.Pheld = S.P; log('Inflate valve stuck open'); status('s3Status', 'Pressure is climbing on its own. Watch the red line at 60 kPa.', 'warn');
+  });
+
+  /* tabs */
+  const tabs = ['t1', 't2', 't3'];
+  function selectTab(id) {
+    tabs.forEach(t => { const on = t === id; $(t).setAttribute('aria-selected', on); $('s' + t[1]).hidden = !on; });
+  }
+  tabs.forEach((t, i) => {
+    $(t).addEventListener('click', () => selectTab(t));
+    $(t).addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const j = (i + (e.key === 'ArrowRight' ? 1 : 2)) % 3; selectTab(tabs[j]); $(tabs[j]).focus(); } });
+  });
+  const hashTab = { use: 't1', nextday: 't2', safety: 't3' }[location.hash.slice(1)];
+  if (hashTab) selectTab(hashTab);
+
+  /* camera */
+  const VIEWS = {
+    all: { target: [-5.5, -1.0, 3.0], az: 0.42, el: 0.38, dist: 68 },
+    hand: { target: [7.0, 0.2, 0.5], az: 0.32, el: 0.36, dist: 34 },
+    band: { target: [-15.5, 0.2, 0], az: 0.2, el: 0.48, dist: 34 }
+  };
+  const orb = Object.assign({}, VIEWS.all, { target: VIEWS.all.target.slice() });
+  let fly = null;
+  const narrow = () => canvas.clientWidth < 620;
+  function viewFor(name) {
+    const v = VIEWS[name]; const o = { target: v.target.slice(), az: v.az, el: v.el, dist: v.dist };
+    const asp = canvas.clientWidth / Math.max(canvas.clientHeight, 1);
+    if (narrow()) { if (name === 'all') { o.az = 1.12; o.el = 0.52; o.dist = 92; o.target = [-4, -1.5, 2]; } else o.dist *= 1.3; }
+    else o.dist *= clamp((name === 'all' ? 1.3 : 1.05) / asp, 1, 1.9);
+    return o;
+  }
+  let preset = 'all', lastAsp = 0;
+  function flyTo(name) {
+    preset = name;
+    ['vAll', 'vHand', 'vBand'].forEach(id => $(id).setAttribute('aria-pressed', id === { all: 'vAll', hand: 'vHand', band: 'vBand' }[name]));
+    const to = viewFor(name);
+    fly = { t: 0, dur: reduceMotion ? 0.01 : 0.9, from: { target: orb.target.slice(), az: orb.az, el: orb.el, dist: orb.dist }, to };
+  }
+  $('vAll').addEventListener('click', () => flyTo('all'));
+  $('vHand').addEventListener('click', () => flyTo('hand'));
+  $('vBand').addEventListener('click', () => flyTo('band'));
+  let labelsOn = !narrow();
+  $('vLabels').setAttribute('aria-pressed', labelsOn);
+  $('vLabels').addEventListener('click', () => { labelsOn = !labelsOn; $('vLabels').setAttribute('aria-pressed', labelsOn); });
+  // drag + zoom
+  const pts = new Map(); let pinch = null;
+  canvas.addEventListener('pointerdown', e => { preset = null; canvas.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); fly = null; ['vAll', 'vHand', 'vBand'].forEach(id => $(id).setAttribute('aria-pressed', 'false')); });
+  canvas.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 1) {
+      orb.az -= (e.clientX - prev[0]) * 0.006; orb.el = clamp(orb.el + (e.clientY - prev[1]) * 0.005, 0.06, 1.35);
+    } else if (pts.size === 2) {
+      const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      if (pinch) orb.dist = clamp(orb.dist * pinch / d, 14, 120); pinch = d;
+    }
+  });
+  const endPtr = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; };
+  canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+  canvas.addEventListener('wheel', e => { e.preventDefault(); fly = null; preset = null; orb.dist = clamp(orb.dist * Math.exp(e.deltaY * 0.0012), 14, 120); }, { passive: false });
+  canvas.addEventListener('keydown', e => {
+    const step = 0.08;
+    if (e.key === 'ArrowLeft') orb.az += step; else if (e.key === 'ArrowRight') orb.az -= step;
+    else if (e.key === 'ArrowUp') orb.el = clamp(orb.el + step, 0.06, 1.35); else if (e.key === 'ArrowDown') orb.el = clamp(orb.el - step, 0.06, 1.35);
+    else if (e.key === '+' || e.key === '=') orb.dist = clamp(orb.dist * 0.9, 14, 120); else if (e.key === '-') orb.dist = clamp(orb.dist * 1.1, 14, 120);
+    else return; e.preventDefault(); fly = null; preset = null;
+  });
+
+  /* labels pinned to 3D points */
+  const PINS = [
+    { id: 'band', t: 'EMG armband', d: '8 dry sensors, no gel. The orange notch lines up with a mark on the skin.', at: () => M4.apply(model.pods[2].world, [0, 0, 0.6]), side: 'right' },
+    { id: 'act', t: 'Air chambers', d: 'Pressure curls the fingers closed. Vacuum straightens them.', at: () => M4.apply(model.fingerNodes[0].segs[1].world, [1.2, 0, -1.6]), side: 'right' },
+    { id: 'man', t: 'Manifold', d: 'One air line splits to all five fingers.', at: () => M4.apply(model.manifold.world, [0, 1.7, -0.5]), side: 'left' },
+    { id: 'pump', t: 'Pump and valves', d: 'Kept off the hand. The valves open when unpowered, so the glove vents.', at: () => M4.apply(model.pump.world, [-2.5, 1.9, 1.5]), side: 'right' }
+  ];
+  const pinEls = PINS.map(p => { const el = document.createElement('div'); el.className = 'pin' + (p.side === 'left' ? ' left' : ''); el.innerHTML = '<i></i><span></span>'; el.querySelector('span').innerHTML = p.t + '<em>' + p.d + '</em>'; $('pins').appendChild(el); return el; });
+  function placePins(vp) {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    PINS.forEach((p, i) => {
+      const el = pinEls[i];
+      if (!labelsOn) { el.classList.add('hidden'); return; }
+      const wp = p.at(); const x = vp[0] * wp[0] + vp[4] * wp[1] + vp[8] * wp[2] + vp[12], y = vp[1] * wp[0] + vp[5] * wp[1] + vp[9] * wp[2] + vp[13], ww = vp[3] * wp[0] + vp[7] * wp[1] + vp[11] * wp[2] + vp[15];
+      if (ww <= 0) { el.classList.add('hidden'); return; }
+      const sx = (x / ww * 0.5 + 0.5) * w, sy = (1 - (y / ww * 0.5 + 0.5)) * h;
+      const off = sx < 8 || sy < 64 || sx > w - 8 || sy > h - 96;
+      el.classList.toggle('hidden', off);
+      const flip = p.side === 'left' ? sx > 180 : sx > w - 200;
+      el.classList.toggle('left', flip);
+      el.style.left = sx.toFixed(1) + 'px'; el.style.top = sy.toFixed(1) + 'px';
+    });
+  }
+
+  /* readout drawing */
+  const emg = $('emg'), ectx = emg.getContext('2d');
+  function sizeCanvas(c) { const d = Math.min(devicePixelRatio || 1, 2), w = Math.round(c.clientWidth * d), h = Math.round(c.clientHeight * d); if (c.width !== w || c.height !== h) { c.width = w; c.height = h; } return d; }
+  function drawEmg() {
+    const d = sizeCanvas(emg), W = emg.width, H = emg.height; ectx.clearRect(0, 0, W, H);
+    const rows = 8, rh = H / rows, labW = 18 * d, span = 1500, cols = Math.max(40, Math.floor((W - labW) / (1.5 * d)));
+    ectx.font = (10 * d) + 'px ' + getComputedStyle(document.body).getPropertyValue('--mono');
+    // current window
+    const winW = (W - labW) * 150 / span;
+    ectx.fillStyle = theme.chip; ectx.fillRect(W - winW, 0, winW, H);
+    ectx.textBaseline = 'middle';
+    for (let i = 0; i < rows; i++) {
+      const cy = rh * (i + 0.5); ectx.fillStyle = theme.ink3; ectx.fillText(String(i + 1), 2 * d, cy);
+      const lvl = clamp(S.rms[i] * 2.2, 0, 1);
+      ectx.strokeStyle = lvl > 0.25 ? theme.ink : theme.ink3; ectx.globalAlpha = 0.45 + 0.55 * lvl; ectx.lineWidth = 1 * d;
+      ectx.beginPath();
+      const per = span / cols;
+      for (let c = 0; c < cols; c++) {
+        let mx = 0; const end = S.w - Math.floor((cols - c - 1) * per);
+        for (let j = 0; j < per; j++) { const v = S.buf[i][(end - j) & 4095]; if (Math.abs(v) > Math.abs(mx)) mx = v; }
+        const x = labW + (W - labW) * c / cols, y = cy - clamp(mx * 0.2, -0.5, 0.5) * rh;
+        c ? ectx.lineTo(x, y) : ectx.moveTo(x, y);
+      }
+      ectx.stroke(); ectx.globalAlpha = 1;
+    }
+  }
+  const bars = [$('bRest'), $('bOpen'), $('bClose')];
+  function drawBars() {
+    const rec = !!S.check;
+    bars.forEach((b, i) => {
+      const v = rec ? 0 : S.post[i];
+      b.querySelector('.fill').style.width = (v * 100).toFixed(1) + '%';
+      b.querySelector('.v').textContent = rec ? '-' : v.toFixed(2);
+      b.classList.toggle('top', !rec && i === S.top);
+    });
+    $('d1').classList.toggle('on', !rec && S.streak >= 1); $('d2').classList.toggle('on', !rec && S.streak >= 2);
+    let txt;
+    if (rec) txt = '<b>Recording</b> for the check';
+    else if (!glovesLive()) txt = '<b>Glove off</b>';
+    else if (S.jam) txt = '<b>Valve stuck</b>';
+    else if (S.post[S.top] < 0.8) txt = '<b>Not sure</b>, holding still';
+    else if (S.cmd === 'close') txt = '<b>Closing</b>' + (S.cup ? ' on the cup' : '');
+    else if (S.cmd === 'open') txt = '<b>Opening</b>';
+    else txt = '<b>Holding</b>';
+    $('decision').innerHTML = txt;
+  }
+  const PMIN = -40, PMAX = 80, pct = v => (v - PMIN) / (PMAX - PMIN) * 100;
+  function drawScales() {
+    $('mZero').style.left = pct(0) + '%'; $('mLim').style.left = pct(60) + '%';
+    $('mScale').innerHTML = [-40, -20, 0, 20, 40, 60, 80].map(v => '<span style="left:' + pct(v) + '%">' + v + '</span>').join('');
+  }
+  drawScales();
+  function drawGlove() {
+    const f = $('mFill'), P = S.P;
+    f.style.left = pct(Math.min(0, P)) + '%'; f.style.width = (Math.abs(P) / (PMAX - PMIN) * 100).toFixed(2) + '%';
+    f.style.background = P >= 0 ? (P > 60 ? theme.bad : theme.accent) : theme.ink3;
+    $('kP').textContent = (P > 0.5 ? '+' : '') + P.toFixed(0) + ' kPa';
+    const grip = S.cup && P > 0 && S.g.slice(0, 4).some((g, i) => g >= S.lim[i] - 0.03) ? Math.min(15, P / 45 * 9) : 0;
+    $('kF').textContent = grip.toFixed(1) + ' N';
+    let vn;
+    if (!S.powered) vn = 'unpowered, open to air';
+    else if (S.mode === 'fault') vn = 'vented after fault';
+    else if (S.Ptarget > S.P + 0.5) vn = 'pump on, inflating';
+    else if (S.Ptarget < S.P - 0.5) vn = S.Ptarget < 0 ? 'pump on, vacuum' : 'venting';
+    else vn = Math.abs(P) > 0.5 ? 'valves closed, holding' : 'at rest';
+    $('valveNote').textContent = vn;
+  }
+
+  /* model update from state */
+  let flowPhase = 0;
+  function updateModel(dt) {
+    // band animation: slide off toward the elbow, rotate, slide back
+    if (S.bandAnim) {
+      const a = S.bandAnim; a.t += dt; const u = clamp(a.t / a.dur, 0, 1);
+      const lift = Math.sin(Math.PI * u); S.lift = lift;
+      S.thDraw = lerp(a.from.th, a.to.th, smooth(u)); S.dxDraw = lerp(a.from.dx, a.to.dx, smooth(u)) - 5 * lift;
+      if (u >= 1) S.bandAnim = null;
+    }
+    model.placeBand(S.thDraw * D2R, S.dxDraw, S.lift);
+    applyPose(model, S.g.slice(0, 4), S.g[4]);
+    applyPressure(model, S.P > 0 ? S.P / 45 : S.P / 25);
+    // leds follow channel level
+    const acc = hexLin(theme.accent);
+    for (let i = 0; i < 8; i++) { const v = clamp(S.rms[i] * 2.4, 0, 1); model.M.led[i].emis = V3.scale(acc, 0.05 + 1.6 * v * v); model.M.led[i].color = V3.lerp(hexLin('#3a4560'), acc, v); }
+    // pump status light
+    const pl = model.M.pumpLed;
+    pl.emis = !S.powered ? [0, 0, 0] : S.mode === 'fault' ? V3.scale(hexLin('#e5483a'), 1.2) : glovesLive() ? V3.scale(acc, 0.9) : V3.scale(hexLin('#8aa0c8'), 0.5);
+    // air moving in the line
+    const flowing = Math.abs(S.P - (S.prevPdraw ?? S.P)) / Math.max(dt, 1e-3) > 4;
+    const dir = S.P > (S.prevPdraw ?? S.P) && S.powered && S.mode !== 'fault' ? 1 : -1;
+    S.prevPdraw = S.P;
+    flowPhase += dt * 0.55 * dir;
+    const path = model.mainPath, L = path.length;
+    model.flow.forEach((d, i) => {
+      d.visible = flowing;
+      if (!flowing) return;
+      const u = ((flowPhase + i / model.flow.length) % 1 + 1) % 1;
+      const pos = path[Math.floor((1 - u) * (L - 1))];
+      d.p = pos; d.s = [1, 1, 1];
+    });
+    model.M.flow.emis = dir > 0 ? V3.scale(acc, 0.7) : V3.scale(hexLin('#9fb3d1'), 0.6);
+    model.M.flow.color = dir > 0 ? acc : hexLin('#9fb3d1');
+  }
+
+  /* loop */
+  let last = performance.now(), running = true, uiTick = 0;
+  function resize() {
+    const d = Math.min(devicePixelRatio || 1, narrow() ? 1.75 : 2);
+    const w = Math.max(1, Math.round(canvas.clientWidth * d)), h = Math.max(1, Math.round(canvas.clientHeight * d));
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  }
+  function frame(now) {
+    if (!running) return;
+    const dt = clamp((now - last) / 1000, 0, 0.05); last = now;
+    simStep(dt);
+    if (fly) {
+      fly.t += dt; const u = smooth(clamp(fly.t / fly.dur, 0, 1));
+      orb.target = V3.lerp(fly.from.target, fly.to.target, u); orb.dist = lerp(fly.from.dist, fly.to.dist, u); orb.el = lerp(fly.from.el, fly.to.el, u);
+      let da = fly.to.az - fly.from.az; da = Math.atan2(Math.sin(da), Math.cos(da)); orb.az = fly.from.az + da * u;
+      if (u >= 1) fly = null;
+    }
+    updateModel(dt);
+    resize();
+    const asp = canvas.clientWidth / Math.max(canvas.clientHeight, 1);
+    if (preset && !fly && Math.abs(asp - lastAsp) > 0.01) { Object.assign(orb, viewFor(preset)); }
+    lastAsp = asp;
+    const vp = drawFrame(R, model, orbitCam(orb), env);
+    placePins(vp);
+    uiTick += dt;
+    if (uiTick > 1 / 30) { uiTick = 0; drawEmg(); drawBars(); drawGlove(); updateButtons(); }
+    requestAnimationFrame(frame);
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { running = false; } else if (!running) { running = true; last = performance.now(); requestAnimationFrame(frame); } });
+  setMode('active');
+  log('Day 1 model loaded. Glove on');
+  Object.assign(orb, viewFor('all'));
+  window.__regrasp = { setSkip(v) { SKIP = v; }, setEff(v) { EFF_LO = v; }, S, press, flyTo, orb, model, startCheck, advance(sec) { for (let i = 0; i < sec / 0.02; i++) { simStep(0.02); updateModel(0.02); } } };
+  requestAnimationFrame(frame);
+})();
+
+</script>
+
+</body>
+</html>
